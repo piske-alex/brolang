@@ -177,11 +177,14 @@ section {
   border: 2px solid #222;
   border-radius: 8px;
   overflow: hidden;
+  outline: none;
   box-shadow: 0 0 40px rgba(255,68,68,0.1), 0 0 80px rgba(0,0,0,0.5);
 }
 
 .game-container canvas {
   display: block;
+  width: 640px;
+  height: 384px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
@@ -488,7 +491,7 @@ footer a:hover { color: var(--red); }
     Written in BroLang. Compiled to bytecode. Running on a stack VM. In your browser.
   </p>
 
-  <div class="game-container scanlines">
+  <div class="game-container scanlines" tabindex="0" id="game-container">
     <canvas id="game-canvas" width="80" height="48"></canvas>
     <div class="game-overlay" id="game-overlay">
       <div class="play-icon">&#9654;</div>
@@ -1688,9 +1691,9 @@ let gameVM=null;
 function startGame(){
   if(gameVM)gameVM.stop();
   const canvas=document.getElementById('game-canvas');
-  canvas.style.width='640px';canvas.style.height='384px';
   document.getElementById('game-overlay').classList.add('hidden');
   document.getElementById('game-end').classList.add('hidden');
+  document.getElementById('game-container').focus();
 
   try{
     const tokens=lex(DOOM_SRC);
@@ -1710,8 +1713,17 @@ function startGame(){
       if(gs===1){titleEl.textContent='YOU WIN';titleEl.style.color='var(--green)';statsEl.innerHTML=`Kills: 4/4 | Ammo: ${ammo} | HP: ${hp}%`;}
       else if(gs===2){titleEl.textContent='YOU DIED';titleEl.style.color='var(--red)';statsEl.innerHTML=`Kills: ${kills}/4`;}
       else{titleEl.textContent='QUIT';titleEl.style.color='var(--yellow)';statsEl.innerHTML=`Kills: ${kills}/4`;}
-    }).catch(e=>console.error('doom error:',e));
-  }catch(e){console.error('compile error:',e);}
+    }).catch(e=>{
+      console.error('doom error:',e);
+      const endEl=document.getElementById('game-end');
+      document.getElementById('end-title').textContent='ERROR';
+      document.getElementById('end-stats').textContent=e.message;
+      endEl.classList.remove('hidden');
+    });
+  }catch(e){
+    console.error('compile error:',e);
+    alert('Compile error: '+e.message);
+  }
 }
 
 // Key handling
