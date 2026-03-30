@@ -1551,6 +1551,9 @@ class VM {
         }
         return en.hp;
       }
+      case 'enemies_clear':
+        this.enemies = [];
+        return null;
       case 'enemy_flash': {
         const en = this.enemies[args[0] | 0];
         if (en.hurtTimer > 0) { en.hurtTimer--; return 1; }
