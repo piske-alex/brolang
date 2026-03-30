@@ -1,0 +1,80 @@
+# BroLang — llms.txt
+
+> BroLang is a compiled programming language with crypto-bro keywords.
+> It has a bytecode VM, a native x86-64 backend, and COBOL-style syntax.
+> All keywords are case-insensitive. Programs use .bro file extension.
+
+## How to write BroLang
+
+A program starts with `gm` and ends with `gn` (or `STOP RUG.`).
+Variables: `ser x is 5` (mutable), `hodl PI is 3.14` (constant).
+Functions: `based name(params) ... gg` or `based name(params) ape_in ... ape_out`.
+Control flow: `wagmi condition ... ngmi ... fr` (if/else/endif).
+Loops: `to_the_moon condition ... gg` (while).
+For-each: `sweep item in collection ape_in ... ape_out`.
+Print: `shill "text"` or `shill "hello {name}"` (interpolation).
+Return: `paper_hands value`.
+Lambda: `ser fn is anon(x) x times 2`.
+Pipe: `value pump fn pump fn2` equals `fn2(fn(value))`.
+Import: `ape_into degen_math` loads a standard library module.
+
+## Operators (all text-based, no symbols)
+
+Arithmetic: plus (+), minus (-), times (*), divided_by (/), mod (%)
+Comparison: equals (===), greater_than (>), less_than (<), gte (>=), lte (<=)
+Logic: and (&&), or (||), not (!)
+Assignment: `ser x is expr` or `x is expr`
+
+## Types
+
+Numbers (float64), strings (double-quoted), booleans (few/cope),
+null (probably_nothing), arrays ([1, 2, 3]).
+
+## COBOL-style syntax (optional)
+
+Programs can use IDENTIFICATION DIVISION., DATA DIVISION.,
+PROCEDURE DIVISION., and MAIN SECTION. as decorative headers.
+STOP RUG. replaces gn. Keywords can be UPPERCASE.
+ape_in/ape_out replace gg/fr as block delimiters.
+
+## Standard library modules (loaded via ape_into)
+
+degen_math: floor, ceil, sqrt, abs, sin, cos, pow, min, max, random, pi
+degen_string: char_at, str_len, upper, lower, trim, substr, replace, split, join, contains, starts_with, ends_with, to_number, to_string, repeat
+degen_array: arr_new, arr_len, arr_get, arr_set, arr_push, arr_pop, arr_sort, arr_reverse, arr_contains, arr_index_of
+degen_time: now, sleep
+degen_gfx: hires, pixel, vline, rect, hflush, clear_screen (graphics)
+degen_game: game_init, key, zbuf_*, enemy_* (game engine)
+
+## Example
+
+```
+gm
+ape_into degen_math
+ape_into degen_string
+
+hodl TAX_RATE is 0.003
+ser balance is 1000
+
+based apply_fee(amount, rate)
+  paper_hands amount times (1 minus rate)
+gg
+
+ser after_fee is balance pump apply_fee(TAX_RATE)
+shill "Balance after fee: {after_fee}"
+
+wagmi after_fee greater_than 500
+  shill "still solvent ser"
+ngmi
+  shill "ngmi"
+fr
+
+gn
+```
+
+## Running BroLang
+
+- Bytecode VM: `node brolang-vm.js program.bro`
+- Native x86-64: `node brolang-native.js program.bro && ./program.elf`
+- Browser REPL: https://piske-alex.github.io/brolang/
+- Source: https://github.com/piske-alex/brolang

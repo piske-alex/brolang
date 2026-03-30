@@ -554,6 +554,38 @@ footer a:hover { color: var(--red); }
   color: #000;
 }
 
+/* ─── DOCS TABS ─── */
+
+.docs-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #222;
+}
+
+.docs-tab {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.6rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+
+.docs-tab:hover { color: var(--text); }
+
+.docs-tab.active {
+  color: var(--red);
+  border-bottom-color: var(--red);
+}
+
+.docs-panel.hidden { display: none; }
+
 .desktop-only { }
 
 @media (max-width: 700px) {
@@ -723,61 +755,163 @@ STOP RUG.</textarea>
 </section>
 
 <!-- ═══════ SPEC ═══════ -->
-<section id="spec-section">
-  <h2 class="section-title">Language <span class="accent">Spec</span></h2>
-  <div class="spec-grid">
-    <div class="spec-row"><span class="kw">gm</span><span class="arrow">&rarr;</span><span class="meaning">program start</span></div>
-    <div class="spec-row"><span class="kw">gn</span><span class="arrow">&rarr;</span><span class="meaning">program end</span></div>
-    <div class="spec-row"><span class="kw">ser</span><span class="arrow">&rarr;</span><span class="meaning">let</span></div>
-    <div class="spec-row"><span class="kw">hodl</span><span class="arrow">&rarr;</span><span class="meaning">const</span></div>
-    <div class="spec-row"><span class="kw">based</span><span class="arrow">&rarr;</span><span class="meaning">function</span></div>
-    <div class="spec-row"><span class="kw">gg</span><span class="arrow">&rarr;</span><span class="meaning">end block</span></div>
-    <div class="spec-row"><span class="kw">paper_hands</span><span class="arrow">&rarr;</span><span class="meaning">return</span></div>
-    <div class="spec-row"><span class="kw">wagmi</span><span class="arrow">&rarr;</span><span class="meaning">if</span></div>
-    <div class="spec-row"><span class="kw">ngmi</span><span class="arrow">&rarr;</span><span class="meaning">else</span></div>
-    <div class="spec-row"><span class="kw">fr</span><span class="arrow">&rarr;</span><span class="meaning">end if</span></div>
-    <div class="spec-row"><span class="kw">to_the_moon</span><span class="arrow">&rarr;</span><span class="meaning">while</span></div>
-    <div class="spec-row"><span class="kw">touch_grass</span><span class="arrow">&rarr;</span><span class="meaning">break</span></div>
-    <div class="spec-row"><span class="kw">shill</span><span class="arrow">&rarr;</span><span class="meaning">print</span></div>
-    <div class="spec-row"><span class="kw">rug</span><span class="arrow">&rarr;</span><span class="meaning">throw</span></div>
-    <div class="spec-row"><span class="kw">ape_in</span><span class="arrow">&rarr;</span><span class="meaning">array.push</span></div>
-    <div class="spec-row"><span class="kw">few</span><span class="arrow">&rarr;</span><span class="meaning">true</span></div>
-    <div class="spec-row"><span class="kw">cope</span><span class="arrow">&rarr;</span><span class="meaning">false</span></div>
-    <div class="spec-row"><span class="kw">probably_nothing</span><span class="arrow">&rarr;</span><span class="meaning">null</span></div>
-    <div class="spec-row"><span class="kw">nfa</span><span class="arrow">&rarr;</span><span class="meaning">// comment</span></div>
-    <div class="spec-row"><span class="kw">plus / minus</span><span class="arrow">&rarr;</span><span class="meaning">+ / -</span></div>
-    <div class="spec-row"><span class="kw">times / divided_by</span><span class="arrow">&rarr;</span><span class="meaning">* / /</span></div>
-    <div class="spec-row"><span class="kw">equals</span><span class="arrow">&rarr;</span><span class="meaning">===</span></div>
-    <div class="spec-row"><span class="kw">greater_than</span><span class="arrow">&rarr;</span><span class="meaning">&gt;</span></div>
-    <div class="spec-row"><span class="kw">less_than</span><span class="arrow">&rarr;</span><span class="meaning">&lt;</span></div>
-  </div>
-</section>
+<!-- ═══════ DOCS (Human / Agent tabs) ═══════ -->
+<section id="docs-section">
+  <h2 class="section-title"><span class="accent">Docs</span></h2>
 
-<!-- ═══════ ARCHITECTURE ═══════ -->
-<section>
-  <h2 class="section-title">Compiler <span class="accent">Pipeline</span></h2>
-  <div class="pipeline">
-    <span class="stage active">.bro source</span>
-    <span class="arrow">&rarr;</span>
-    <span class="stage">Lexer</span>
-    <span class="arrow">&rarr;</span>
-    <span class="stage">Tokens</span>
-    <span class="arrow">&rarr;</span>
-    <span class="stage">Parser</span>
-    <span class="arrow">&rarr;</span>
-    <span class="stage">AST</span>
-    <span class="arrow">&rarr;</span>
-    <span class="stage">Compiler</span>
-    <span class="arrow">&rarr;</span>
-    <span class="stage active">Bytecode</span>
-    <span class="arrow">&rarr;</span>
-    <span class="stage">Stack VM</span>
+  <div class="docs-tabs">
+    <button class="docs-tab active" onclick="switchDocsTab('human')">Human</button>
+    <button class="docs-tab" onclick="switchDocsTab('agent')">Agent</button>
   </div>
-  <p style="color: var(--text-dim); margin-top: 1rem; font-size: 0.9rem;">
-    No transpilation. No eval(). Source is lexed, parsed into an AST, compiled to real bytecodes
-    (CONST, ADD, MUL, JMP_FALSE, CALL, RETURN), and executed on a stack-based virtual machine.
-    Same architecture as CPython. More vibes.
-  </p>
+
+  <!-- HUMAN TAB -->
+  <div class="docs-panel" id="docs-human">
+
+    <h3 style="font-family: var(--mono); color: #fff; margin-bottom: 1rem; font-size: 1.1rem;">Quick Start</h3>
+    <div style="background: var(--bg2); border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; font-family: var(--mono); font-size: 0.85rem;">
+      <span style="color: var(--text-dim);"># Install and run</span><br>
+      <span style="color: var(--green);">git clone</span> https://github.com/piske-alex/brolang<br>
+      <span style="color: var(--green);">cd</span> brolang<br>
+      <span style="color: var(--green);">node</span> brolang-vm.js uniswap-compiled.bro<br><br>
+      <span style="color: var(--text-dim);"># Play DOOM</span><br>
+      <span style="color: var(--green);">node</span> brolang-vm.js doom-play.bro<br><br>
+      <span style="color: var(--text-dim);"># Compile to native x86-64 ELF (no runtime)</span><br>
+      <span style="color: var(--green);">node</span> brolang-native.js hello.bro<br>
+      <span style="color: var(--green);">./</span>hello.elf
+    </div>
+
+    <h3 style="font-family: var(--mono); color: #fff; margin-bottom: 1rem; font-size: 1.1rem;">Keywords</h3>
+    <div class="spec-grid">
+      <div class="spec-row"><span class="kw">gm / gn</span><span class="arrow">&rarr;</span><span class="meaning">program start / end</span></div>
+      <div class="spec-row"><span class="kw">ser / hodl</span><span class="arrow">&rarr;</span><span class="meaning">let / const</span></div>
+      <div class="spec-row"><span class="kw">based / gg</span><span class="arrow">&rarr;</span><span class="meaning">function / end block</span></div>
+      <div class="spec-row"><span class="kw">paper_hands</span><span class="arrow">&rarr;</span><span class="meaning">return</span></div>
+      <div class="spec-row"><span class="kw">wagmi / ngmi / fr</span><span class="arrow">&rarr;</span><span class="meaning">if / else / end if</span></div>
+      <div class="spec-row"><span class="kw">to_the_moon / gg</span><span class="arrow">&rarr;</span><span class="meaning">while / end loop</span></div>
+      <div class="spec-row"><span class="kw">shill / rug</span><span class="arrow">&rarr;</span><span class="meaning">print / throw</span></div>
+      <div class="spec-row"><span class="kw">few / cope</span><span class="arrow">&rarr;</span><span class="meaning">true / false</span></div>
+      <div class="spec-row"><span class="kw">ape_in / ape_out</span><span class="arrow">&rarr;</span><span class="meaning">{ / }</span></div>
+      <div class="spec-row"><span class="kw">sweep / in</span><span class="arrow">&rarr;</span><span class="meaning">for each</span></div>
+      <div class="spec-row"><span class="kw">pump</span><span class="arrow">&rarr;</span><span class="meaning">|> pipe</span></div>
+      <div class="spec-row"><span class="kw">anon</span><span class="arrow">&rarr;</span><span class="meaning">lambda</span></div>
+      <div class="spec-row"><span class="kw">ape_into</span><span class="arrow">&rarr;</span><span class="meaning">import module</span></div>
+      <div class="spec-row"><span class="kw">STOP RUG.</span><span class="arrow">&rarr;</span><span class="meaning">program end (COBOL)</span></div>
+      <div class="spec-row"><span class="kw">plus / minus</span><span class="arrow">&rarr;</span><span class="meaning">+ / -</span></div>
+      <div class="spec-row"><span class="kw">times / divided_by</span><span class="arrow">&rarr;</span><span class="meaning">* / /</span></div>
+      <div class="spec-row"><span class="kw">equals</span><span class="arrow">&rarr;</span><span class="meaning">===</span></div>
+      <div class="spec-row"><span class="kw">greater_than / less_than</span><span class="arrow">&rarr;</span><span class="meaning">&gt; / &lt;</span></div>
+    </div>
+
+    <h3 style="font-family: var(--mono); color: #fff; margin: 2rem 0 1rem; font-size: 1.1rem;">Compiler Pipeline</h3>
+    <div class="pipeline">
+      <span class="stage active">.bro source</span>
+      <span class="arrow">&rarr;</span>
+      <span class="stage">Lexer</span>
+      <span class="arrow">&rarr;</span>
+      <span class="stage">Parser</span>
+      <span class="arrow">&rarr;</span>
+      <span class="stage">AST</span>
+      <span class="arrow">&rarr;</span>
+      <span class="stage">Compiler</span>
+      <span class="arrow">&rarr;</span>
+      <span class="stage active">Bytecode</span>
+      <span class="arrow">&rarr;</span>
+      <span class="stage">Stack VM</span>
+    </div>
+    <p style="color: var(--text-dim); margin-top: 1rem; font-size: 0.85rem;">
+      Also compiles to native x86-64 ELF binaries. No runtime. Raw syscalls.
+    </p>
+  </div>
+
+  <!-- AGENT TAB -->
+  <div class="docs-panel hidden" id="docs-agent">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="font-family: var(--mono); color: #fff; font-size: 1.1rem;">llms.txt</h3>
+      <button class="btn btn-gh" style="font-size: 0.75rem; padding: 0.3rem 0.8rem;" onclick="navigator.clipboard.writeText(document.getElementById('llms-txt').textContent)">Copy</button>
+    </div>
+    <pre id="llms-txt" style="background: var(--bg2); border: 1px solid #222; border-radius: 8px; padding: 1.5rem; font-family: var(--mono); font-size: 0.8rem; color: var(--text); line-height: 1.6; overflow-x: auto; white-space: pre-wrap;">
+# BroLang — llms.txt
+
+> BroLang is a compiled programming language with crypto-bro keywords.
+> It has a bytecode VM, a native x86-64 backend, and COBOL-style syntax.
+> All keywords are case-insensitive. Programs use .bro file extension.
+
+## How to write BroLang
+
+A program starts with `gm` and ends with `gn` (or `STOP RUG.`).
+Variables: `ser x is 5` (mutable), `hodl PI is 3.14` (constant).
+Functions: `based name(params) ... gg` or `based name(params) ape_in ... ape_out`.
+Control flow: `wagmi condition ... ngmi ... fr` (if/else/endif).
+Loops: `to_the_moon condition ... gg` (while).
+For-each: `sweep item in collection ape_in ... ape_out`.
+Print: `shill "text"` or `shill "hello {name}"` (interpolation).
+Return: `paper_hands value`.
+Lambda: `ser fn is anon(x) x times 2`.
+Pipe: `value pump fn pump fn2` equals `fn2(fn(value))`.
+Import: `ape_into degen_math` loads a standard library module.
+
+## Operators (all text-based, no symbols)
+
+Arithmetic: plus (+), minus (-), times (*), divided_by (/), mod (%)
+Comparison: equals (===), greater_than (>), less_than (<), gte (>=), lte (<=)
+Logic: and (&&), or (||), not (!)
+Assignment: `ser x is expr` or `x is expr`
+
+## Types
+
+Numbers (float64), strings (double-quoted), booleans (few/cope),
+null (probably_nothing), arrays ([1, 2, 3]).
+
+## COBOL-style syntax (optional)
+
+Programs can use IDENTIFICATION DIVISION., DATA DIVISION.,
+PROCEDURE DIVISION., and MAIN SECTION. as decorative headers.
+STOP RUG. replaces gn. Keywords can be UPPERCASE.
+ape_in/ape_out replace gg/fr as block delimiters.
+
+## Standard library modules (loaded via ape_into)
+
+degen_math: floor, ceil, sqrt, abs, sin, cos, pow, min, max, random, pi
+degen_string: char_at, str_len, upper, lower, trim, substr, replace, split, join, contains, starts_with, ends_with, to_number, to_string, repeat
+degen_array: arr_new, arr_len, arr_get, arr_set, arr_push, arr_pop, arr_sort, arr_reverse, arr_contains, arr_index_of
+degen_time: now, sleep
+degen_gfx: hires, pixel, vline, rect, hflush, clear_screen (graphics)
+degen_game: game_init, key, zbuf_*, enemy_* (game engine)
+
+## Example
+
+```
+gm
+ape_into degen_math
+ape_into degen_string
+
+hodl TAX_RATE is 0.003
+ser balance is 1000
+
+based apply_fee(amount, rate)
+  paper_hands amount times (1 minus rate)
+gg
+
+ser after_fee is balance pump apply_fee(TAX_RATE)
+shill "Balance after fee: {after_fee}"
+
+wagmi after_fee greater_than 500
+  shill "still solvent ser"
+ngmi
+  shill "ngmi"
+fr
+
+gn
+```
+
+## Running BroLang
+
+- Bytecode VM: `node brolang-vm.js program.bro`
+- Native x86-64: `node brolang-native.js program.bro && ./program.elf`
+- Browser REPL: https://piske-alex.github.io/brolang/
+- Source: https://github.com/piske-alex/brolang
+</pre>
+  </div>
 </section>
 
 <!-- ═══════ FOOTER ═══════ -->
@@ -2094,6 +2228,14 @@ document.getElementById('game-overlay').addEventListener('click',startGame);
 
 // Prevent space from scrolling when game is active
 document.addEventListener('keydown',e=>{if(e.key===' '&&gameVM&&gameVM.gameMode)e.preventDefault();});
+
+// ── Docs tab switching ──
+function switchDocsTab(tab) {
+  document.querySelectorAll('.docs-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.docs-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById('docs-' + tab).classList.remove('hidden');
+  document.querySelector(`.docs-tab[onclick*="${tab}"]`).classList.add('active');
+}
 
 // ── Mobile touch controls ──
 
