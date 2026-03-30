@@ -283,6 +283,22 @@ based render_frame()
   render_world()
   render_hud()
   hflush()
+
+  nfa Print text below the canvas (terminal lines after half-block render)
+  nfa The canvas is 48 pixels = 24 terminal rows. Text goes below.
+  wagmi dialog_active equals 1
+    shill ""
+    shill "  [{dialog_speaker}]"
+    shill "  {dialog_text}"
+    shill "  {dialog_line2}"
+    shill "                                     [SPACE to continue]"
+  ngmi
+    shill ""
+    shill "  WASD: move | SPACE: talk | Keywords: {keywords_found}/15"
+    shill ""
+    shill ""
+    shill ""
+  fr
 gg
 
 based process_input()
