@@ -36,6 +36,7 @@ const TokenType = {
   PROBABLY_NOTHING: 'PROBABLY_NOTHING',
   APE_IN: 'APE_IN',
   APE_OUT: 'APE_OUT',
+  APE_INTO: 'APE_INTO',
   STOP: 'STOP',
   NFA: 'NFA',
 
@@ -73,6 +74,7 @@ const KEYWORDS = {
   'probably_nothing': TokenType.PROBABLY_NOTHING,
   'ape_in': TokenType.APE_IN,
   'ape_out': TokenType.APE_OUT,
+  'ape_into': TokenType.APE_INTO,
   'stop': TokenType.STOP,
   'nfa': TokenType.NFA,
   'plus': TokenType.PLUS, 'minus': TokenType.MINUS,
@@ -238,6 +240,7 @@ const N = {
   PRINT: 'Print',
   THROW: 'Throw',
   PUSH: 'Push',
+  IMPORT: 'Import',
   EXPR_STMT: 'ExprStmt',
 };
 
@@ -305,6 +308,7 @@ class Parser {
       case TokenType.SHILL: return this.parsePrint();
       case TokenType.RUG: return this.parseThrow();
       case TokenType.APE_IN: return this.parsePush();
+      case TokenType.APE_INTO: return this.parseImport();
       case TokenType.IDENT: return this.parseIdentStatement();
       default:
         this.advance(); // skip unknown
@@ -432,6 +436,12 @@ class Parser {
     const array = this.expect(TokenType.IDENT).value;
     const value = this.parseExpr();
     return { type: N.PUSH, array, value };
+  }
+
+  parseImport() {
+    this.expect(TokenType.APE_INTO);
+    const module = this.expect(TokenType.IDENT).value;
+    return { type: N.IMPORT, module };
   }
 
   // ident is expr   OR   ident(args)   OR   just ident as expression
@@ -733,9 +743,15 @@ class Compiler {
     this.currentChunk = this.mainChunk;
     this.scopeDepth = 0;
     this.locals = [];  // { name, depth }
+    this.imports = [];  // module names from APE_INTO
   }
 
   compile(ast) {
+    // Collect imports
+    for (const node of ast.body) {
+      if (node.type === N.IMPORT) this.imports.push(node.module);
+    }
+
     // First pass: collect function declarations
     for (const node of ast.body) {
       if (node.type === N.FUNC_DECL) {
@@ -746,7 +762,7 @@ class Compiler {
     // Second pass: compile top-level statements
     this.currentChunk = this.mainChunk;
     for (const node of ast.body) {
-      if (node.type !== N.FUNC_DECL) {
+      if (node.type !== N.FUNC_DECL && node.type !== N.IMPORT) {
         this.compileNode(node);
       }
     }
@@ -755,6 +771,7 @@ class Compiler {
     return {
       main: this.mainChunk,
       functions: this.functions,
+      imports: this.imports,
     };
   }
 
@@ -977,6 +994,217 @@ class Compiler {
 
 
 // ═══════════════════════════════════════════
+//  PART 3.5: STANDARD LIBRARY MODULES
+// ═══════════════════════════════════════════
+
+// Each module maps function names to implementations.
+// Implementations receive (vm, args) and return a value.
+// Functions that need async (sleep, hflush) return { async: true, fn }
+
+const STDLIB = {
+  degen_math: {
+    random:    (vm) => Math.random(),
+    pi:        (vm) => Math.PI,
+    e:         (vm) => Math.E,
+    floor:     (vm, args) => Math.floor(args[0]),
+    ceil:      (vm, args) => Math.ceil(args[0]),
+    round:     (vm, args) => Math.round(args[0]),
+    sqrt:      (vm, args) => Math.sqrt(args[0]),
+    abs:       (vm, args) => Math.abs(args[0]),
+    min:       (vm, args) => Math.min(...args),
+    max:       (vm, args) => Math.max(...args),
+    pow:       (vm, args) => Math.pow(args[0], args[1]),
+    log:       (vm, args) => Math.log(args[0]),
+    sin:       (vm, args) => Math.sin(args[0]),
+    cos:       (vm, args) => Math.cos(args[0]),
+    tan:       (vm, args) => Math.tan(args[0]),
+    atan2:     (vm, args) => Math.atan2(args[0], args[1]),
+  },
+
+  degen_string: {
+    char_at:     (vm, args) => typeof args[0] === 'string' ? (args[0][args[1]] || ' ') : ' ',
+    str_len:     (vm, args) => typeof args[0] === 'string' ? args[0].length : 0,
+    substr:      (vm, args) => String(args[0]).substring(args[1] | 0, args[2] !== undefined ? args[2] | 0 : undefined),
+    upper:       (vm, args) => String(args[0]).toUpperCase(),
+    lower:       (vm, args) => String(args[0]).toLowerCase(),
+    trim:        (vm, args) => String(args[0]).trim(),
+    contains:    (vm, args) => String(args[0]).includes(String(args[1])) ? 1 : 0,
+    starts_with: (vm, args) => String(args[0]).startsWith(String(args[1])) ? 1 : 0,
+    ends_with:   (vm, args) => String(args[0]).endsWith(String(args[1])) ? 1 : 0,
+    replace:     (vm, args) => String(args[0]).replace(String(args[1]), String(args[2])),
+    split:       (vm, args) => String(args[0]).split(String(args[1])),
+    join:        (vm, args) => Array.isArray(args[0]) ? args[0].join(String(args[1] || '')) : String(args[0]),
+    to_number:   (vm, args) => Number(args[0]) || 0,
+    to_string:   (vm, args) => String(args[0]),
+    repeat:      (vm, args) => String(args[0]).repeat(args[1] | 0),
+  },
+
+  degen_array: {
+    arr_new:      (vm) => [],
+    arr_len:      (vm, args) => Array.isArray(args[0]) ? args[0].length : 0,
+    arr_get:      (vm, args) => Array.isArray(args[0]) ? args[0][args[1] | 0] : null,
+    arr_set:      (vm, args) => { if (Array.isArray(args[0])) args[0][args[1] | 0] = args[2]; return args[2]; },
+    arr_push:     (vm, args) => { if (Array.isArray(args[0])) args[0].push(args[1]); return args[0] ? args[0].length : 0; },
+    arr_pop:      (vm, args) => Array.isArray(args[0]) ? args[0].pop() : null,
+    arr_reverse:  (vm, args) => Array.isArray(args[0]) ? args[0].reverse() : args[0],
+    arr_slice:    (vm, args) => Array.isArray(args[0]) ? args[0].slice(args[1] | 0, args[2] !== undefined ? args[2] | 0 : undefined) : [],
+    arr_contains: (vm, args) => Array.isArray(args[0]) && args[0].includes(args[1]) ? 1 : 0,
+    arr_index_of: (vm, args) => Array.isArray(args[0]) ? args[0].indexOf(args[1]) : -1,
+    arr_sort:     (vm, args) => Array.isArray(args[0]) ? args[0].sort((a, b) => a - b) : args[0],
+  },
+
+  degen_time: {
+    now:   (vm) => Date.now(),
+    sleep: { async: true, fn: (vm, args) => {
+      const ms = args[0] | 0;
+      const end = Date.now() + ms;
+      while (Date.now() < end) {} // busy wait for terminal
+      return null;
+    }},
+  },
+
+  degen_gfx: {
+    screen: (vm, args) => {
+      vm.screenWidth = args[0]; vm.screenHeight = args[1];
+      vm.screenBuffer = Array.from({ length: args[1] }, () =>
+        Array.from({ length: args[0] }, () => ({ ch: ' ', color: 0 }))
+      );
+      return null;
+    },
+    draw: (vm, args) => {
+      if (vm.screenBuffer) {
+        const x = args[0] | 0, y = args[1] | 0;
+        if (x >= 0 && x < vm.screenWidth && y >= 0 && y < vm.screenHeight) {
+          vm.screenBuffer[y][x] = { ch: String(args[2] || ' ')[0] || ' ', color: (args.length > 3 ? args[3] : 0) | 0 };
+        }
+      }
+      return null;
+    },
+    flush: (vm) => {
+      if (!vm.screenBuffer) return null;
+      const ANSI = ['\x1b[0m','\x1b[90m','\x1b[31m','\x1b[91m','\x1b[33m','\x1b[32m','\x1b[34m','\x1b[37m','\x1b[97m','\x1b[35m','\x1b[41m','\x1b[33;2m','\x1b[36m','\x1b[32;2m'];
+      process.stdout.write('\x1b[H\x1b[?25l');
+      for (const row of vm.screenBuffer) {
+        let line = '', curColor = -1;
+        for (const cell of row) {
+          const c = typeof cell === 'object' ? cell : { ch: cell, color: 0 };
+          if (c.color !== curColor) { line += ANSI[c.color] || ANSI[0]; curColor = c.color; }
+          line += c.ch;
+        }
+        line += '\x1b[0m\n';
+        process.stdout.write(line);
+      }
+      return null;
+    },
+    hires: (vm, args) => {
+      vm.hiresWidth = args[0] | 0; vm.hiresHeight = args[1] | 0;
+      vm.hiresBuffer = new Uint8Array(vm.hiresWidth * vm.hiresHeight * 3);
+      return null;
+    },
+    pixel: (vm, args) => {
+      if (!vm.hiresBuffer) return null;
+      const [x, y, r, g, b] = args; const xi = x | 0, yi = y | 0;
+      if (xi >= 0 && xi < vm.hiresWidth && yi >= 0 && yi < vm.hiresHeight) {
+        const idx = (yi * vm.hiresWidth + xi) * 3;
+        vm.hiresBuffer[idx] = r | 0; vm.hiresBuffer[idx + 1] = g | 0; vm.hiresBuffer[idx + 2] = b | 0;
+      }
+      return null;
+    },
+    vline: (vm, args) => {
+      if (!vm.hiresBuffer) return null;
+      const [x, y1, y2, r, g, b] = args;
+      const xi = x | 0, ri = r | 0, gi = g | 0, bi = b | 0, w = vm.hiresWidth, h = vm.hiresHeight;
+      if (xi < 0 || xi >= w) return null;
+      const s = Math.max(0, y1 | 0), e = Math.min(h, y2 | 0);
+      for (let y = s; y < e; y++) { const idx = (y * w + xi) * 3; vm.hiresBuffer[idx] = ri; vm.hiresBuffer[idx + 1] = gi; vm.hiresBuffer[idx + 2] = bi; }
+      return null;
+    },
+    rect: (vm, args) => {
+      if (!vm.hiresBuffer) return null;
+      const [rx, ry, rw, rh, r, g, b] = args;
+      const ri = r | 0, gi = g | 0, bi = b | 0, sw = vm.hiresWidth, sh = vm.hiresHeight;
+      const x0 = Math.max(0, rx | 0), y0 = Math.max(0, ry | 0), x1 = Math.min(sw, (rx + rw) | 0), y1 = Math.min(sh, (ry + rh) | 0);
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const idx = (y * sw + x) * 3; vm.hiresBuffer[idx] = ri; vm.hiresBuffer[idx + 1] = gi; vm.hiresBuffer[idx + 2] = bi; }
+      return null;
+    },
+    hflush: (vm) => {
+      if (!vm.hiresBuffer) return null;
+      const w = vm.hiresWidth, h = vm.hiresHeight, buf = vm.hiresBuffer;
+      let out = '\x1b[H\x1b[?25l';
+      for (let y = 0; y < h; y += 2) {
+        let prevFg = -1, prevBg = -1;
+        for (let x = 0; x < w; x++) {
+          const ti = (y * w + x) * 3, bi = (Math.min(y + 1, h - 1) * w + x) * 3;
+          const tr = buf[ti], tg = buf[ti + 1], tb = buf[ti + 2];
+          const br = buf[bi], bg = buf[bi + 1], bb = buf[bi + 2];
+          const fgKey = (tr << 16) | (tg << 8) | tb, bgKey = (br << 16) | (bg << 8) | bb;
+          if (fgKey !== prevFg) { out += `\x1b[38;2;${tr};${tg};${tb}m`; prevFg = fgKey; }
+          if (bgKey !== prevBg) { out += `\x1b[48;2;${br};${bg};${bb}m`; prevBg = bgKey; }
+          out += '\u2580';
+        }
+        out += '\x1b[0m\n';
+      }
+      process.stdout.write(out);
+      return null;
+    },
+    clear_screen: (vm) => { process.stdout.write('\x1b[2J\x1b[H\x1b[?25l'); return null; },
+  },
+
+  degen_game: {
+    game_init: (vm) => {
+      vm.maxSteps = Infinity; vm.gameMode = false;
+      if (process.stdin.isTTY) {
+        try {
+          require('child_process').execSync('stty -icanon -echo min 0 time 0', { stdio: 'inherit' });
+          vm.gameMode = true;
+        } catch(e) {}
+        const cleanup = () => { process.stdout.write('\x1b[?25h\x1b[0m'); try { require('child_process').execSync('stty sane', { stdio: 'inherit' }); } catch(e) {} };
+        process.on('exit', cleanup);
+        process.on('SIGINT', () => { cleanup(); process.exit(0); });
+      }
+      return null;
+    },
+    key: (vm) => {
+      if (!vm.gameMode) return '';
+      const buf = Buffer.alloc(32);
+      try {
+        const n = require('fs').readSync(0, buf, 0, 32);
+        if (n > 0) {
+          for (let i = 0; i < n; i++) if (buf[i] === 3) { process.stdout.write('\x1b[?25h\x1b[0m\x1b[2J\x1b[H'); try { require('child_process').execSync('stty sane', { stdio: 'inherit' }); } catch(e) {} process.exit(0); }
+          const str = buf.toString('utf8', 0, n);
+          if (str.includes('\x1b[A')) return 'up'; if (str.includes('\x1b[B')) return 'down';
+          if (str.includes('\x1b[C')) return 'right'; if (str.includes('\x1b[D')) return 'left';
+          if (str[0] === ' ') return 'space'; if (str[0] === '\x1b') return 'esc';
+          if (str[0] === '\r' || str[0] === '\n') return 'enter';
+          return str[0].toLowerCase();
+        }
+      } catch(e) {}
+      return '';
+    },
+    key_flush: (vm) => {
+      if (!vm.gameMode) return null;
+      try { require('fs').readSync(0, Buffer.alloc(256), 0, 256); } catch(e) {}
+      return null;
+    },
+    zbuf_init:  (vm, args) => { vm.zbuf = new Float64Array(args[0] | 0); return null; },
+    zbuf_set:   (vm, args) => { if (vm.zbuf) vm.zbuf[args[0] | 0] = args[1]; return null; },
+    zbuf_get:   (vm, args) => vm.zbuf ? vm.zbuf[args[0] | 0] || 999 : 999,
+    enemies_init:  (vm) => { vm.enemies = []; return null; },
+    enemies_clear: (vm) => { vm.enemies = []; return null; },
+    enemy_add:     (vm, args) => { vm.enemies.push({ x: args[0], y: args[1], hp: args[2], hurtTimer: 0 }); return vm.enemies.length - 1; },
+    enemy_count:   (vm) => vm.enemies ? vm.enemies.length : 0,
+    enemy_x:       (vm, args) => vm.enemies[args[0] | 0].x,
+    enemy_y:       (vm, args) => vm.enemies[args[0] | 0].y,
+    enemy_hp:      (vm, args) => vm.enemies[args[0] | 0].hp,
+    enemy_alive:   (vm, args) => vm.enemies[args[0] | 0].hp > 0 ? 1 : 0,
+    enemy_set_pos: (vm, args) => { const e = vm.enemies[args[0] | 0]; e.x = args[1]; e.y = args[2]; return null; },
+    enemy_hurt:    (vm, args) => { const e = vm.enemies[args[0] | 0]; if (e.hp > 0) { e.hp = Math.max(0, e.hp - (args[1] | 0)); e.hurtTimer = 4; } return e.hp; },
+    enemy_flash:   (vm, args) => { const e = vm.enemies[args[0] | 0]; if (e.hurtTimer > 0) { e.hurtTimer--; return 1; } return 0; },
+  },
+};
+
+
+// ═══════════════════════════════════════════
 //  PART 4: VIRTUAL MACHINE — executes bytecode
 // ═══════════════════════════════════════════
 
@@ -1016,6 +1244,26 @@ class VM {
     // Game state (depth buffer + enemies)
     this.zbuf = null;
     this.enemies = null;
+
+    // Module system
+    this.nativeFns = new Map();
+    const imports = program.imports || [];
+    if (imports.length > 0) {
+      // Load only imported modules
+      for (const mod of imports) {
+        if (!STDLIB[mod]) throw new Error(`rugged: unknown module '${mod}'. Available: ${Object.keys(STDLIB).join(', ')}`);
+        for (const [name, impl] of Object.entries(STDLIB[mod])) {
+          this.nativeFns.set(name, impl);
+        }
+      }
+    } else {
+      // Legacy mode: load everything for backwards compatibility
+      for (const mod of Object.values(STDLIB)) {
+        for (const [name, impl] of Object.entries(mod)) {
+          this.nativeFns.set(name, impl);
+        }
+      }
+    }
   }
 
   run() {
@@ -1326,8 +1574,15 @@ class VM {
   }
 
   callNative(name, args) {
+    const fn = this.nativeFns.get(name);
+    if (fn) {
+      // Handle async-flagged functions (like sleep)
+      if (fn.async) return fn.fn(this, args);
+      return fn(this, args);
+    }
+
+    // Legacy fallback for anything not in modules
     switch (name) {
-      // String operations
       case 'char_at':
         return typeof args[0] === 'string' ? (args[0][args[1]] || ' ') : ' ';
       case 'str_len':
