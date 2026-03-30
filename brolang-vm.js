@@ -37,8 +37,16 @@ const TokenType = {
   APE_IN: 'APE_IN',
   APE_OUT: 'APE_OUT',
   APE_INTO: 'APE_INTO',
+  SWEEP: 'SWEEP',
+  IN: 'IN',
+  PUMP: 'PUMP',
+  ANON: 'ANON',
   STOP: 'STOP',
   NFA: 'NFA',
+
+  // String interpolation
+  INTERP_START: 'INTERP_START', // marks start of {expr} inside string
+  INTERP_END: 'INTERP_END',
 
   // Operators
   PLUS: 'PLUS', MINUS: 'MINUS',
@@ -75,6 +83,10 @@ const KEYWORDS = {
   'ape_in': TokenType.APE_IN,
   'ape_out': TokenType.APE_OUT,
   'ape_into': TokenType.APE_INTO,
+  'sweep': TokenType.SWEEP,
+  'in': TokenType.IN,
+  'pump': TokenType.PUMP,
+  'anon': TokenType.ANON,
   'stop': TokenType.STOP,
   'nfa': TokenType.NFA,
   'plus': TokenType.PLUS, 'minus': TokenType.MINUS,
@@ -140,11 +152,46 @@ function lex(source) {
       // Skip whitespace
       if (line[pos] === ' ' || line[pos] === '\t') { pos++; continue; }
 
-      // String literal
+      // String literal (with interpolation support: "hello {name} ser")
       if (line[pos] === '"') {
-        let str = '';
         pos++; // skip opening quote
+        let str = '';
+        let hasInterp = false;
         while (pos < line.length && line[pos] !== '"') {
+          if (line[pos] === '{') {
+            // Start interpolation: emit string so far, then INTERP_START
+            tokens.push(new Token(TokenType.STRING, str, lineNum + 1));
+            tokens.push(new Token(TokenType.INTERP_START, '{', lineNum + 1));
+            str = '';
+            pos++; // skip {
+            // Lex the expression inside {} as normal tokens
+            while (pos < line.length && line[pos] !== '}') {
+              if (line[pos] === ' ' || line[pos] === '\t') { pos++; continue; }
+              if (/[0-9]/.test(line[pos])) {
+                let num = '';
+                while (pos < line.length && /[0-9.]/.test(line[pos])) { num += line[pos]; pos++; }
+                tokens.push(new Token(TokenType.NUMBER, parseFloat(num), lineNum + 1));
+                continue;
+              }
+              if (/[a-zA-Z_]/.test(line[pos])) {
+                let w = '';
+                while (pos < line.length && /[a-zA-Z0-9_]/.test(line[pos])) { w += line[pos]; pos++; }
+                const lo = w.toLowerCase();
+                if (KEYWORDS[lo]) tokens.push(new Token(KEYWORDS[lo], lo, lineNum + 1));
+                else tokens.push(new Token(TokenType.IDENT, w, lineNum + 1));
+                continue;
+              }
+              if (line[pos] === '(') { tokens.push(new Token(TokenType.LPAREN, '(', lineNum + 1)); pos++; continue; }
+              if (line[pos] === ')') { tokens.push(new Token(TokenType.RPAREN, ')', lineNum + 1)); pos++; continue; }
+              if (line[pos] === ',') { tokens.push(new Token(TokenType.COMMA, ',', lineNum + 1)); pos++; continue; }
+              if (line[pos] === '.') { tokens.push(new Token(TokenType.DOT, '.', lineNum + 1)); pos++; continue; }
+              pos++;
+            }
+            if (pos < line.length) pos++; // skip }
+            tokens.push(new Token(TokenType.INTERP_END, '}', lineNum + 1));
+            hasInterp = true;
+            continue;
+          }
           str += line[pos];
           pos++;
         }
@@ -241,6 +288,8 @@ const N = {
   THROW: 'Throw',
   PUSH: 'Push',
   IMPORT: 'Import',
+  FOR_EACH: 'ForEach',
+  LAMBDA: 'Lambda',
   EXPR_STMT: 'ExprStmt',
 };
 
@@ -309,6 +358,7 @@ class Parser {
       case TokenType.RUG: return this.parseThrow();
       case TokenType.APE_IN: return this.parsePush();
       case TokenType.APE_INTO: return this.parseImport();
+      case TokenType.SWEEP: return this.parseSweep();
       case TokenType.IDENT: return this.parseIdentStatement();
       default:
         this.advance(); // skip unknown
@@ -444,6 +494,26 @@ class Parser {
     return { type: N.IMPORT, module };
   }
 
+  // SWEEP item IN collection ape_in ... ape_out
+  // Desugars to: ser __i is 0; to_the_moon __i < arr_len(collection) { ser item is arr_get(collection, __i); ...; __i = __i + 1; }
+  parseSweep() {
+    this.expect(TokenType.SWEEP);
+    const varName = this.expect(TokenType.IDENT).value;
+    this.expect(TokenType.IN);
+    const collection = this.parseExpr();
+    this.match(TokenType.APE_IN);
+    this.skipNewlines();
+
+    const body = [];
+    while (this.peek().type !== TokenType.GG && this.peek().type !== TokenType.APE_OUT) {
+      const stmt = this.parseStatement();
+      if (stmt) body.push(stmt);
+      this.skipNewlines();
+    }
+    this.advance(); // consume gg or ape_out
+    return { type: N.FOR_EACH, varName, collection, body };
+  }
+
   // ident is expr   OR   ident(args)   OR   just ident as expression
   parseIdentStatement() {
     const name = this.expect(TokenType.IDENT).value;
@@ -464,7 +534,27 @@ class Parser {
   // ── Expression parsing (precedence climbing) ──
 
   parseExpr() {
-    return this.parseOr();
+    return this.parsePipe();
+  }
+
+  // PUMP (pipe operator): expr PUMP fn  →  fn(expr)
+  // expr PUMP fn(extra_args)  →  fn(expr, extra_args)
+  parsePipe() {
+    let left = this.parseOr();
+    while (this.peek().type === TokenType.PUMP) {
+      this.advance();
+      // Parse the right side — could be just an ident or a call
+      const right = this.parsePostfix();
+      if (right.type === N.CALL) {
+        // fn(extra_args) → fn(left, extra_args)
+        right.args.unshift(left);
+        left = right;
+      } else {
+        // Just an ident → fn(left)
+        left = { type: N.CALL, callee: right, args: [left] };
+      }
+    }
+    return left;
   }
 
   parseOr() {
@@ -588,8 +678,17 @@ class Parser {
     }
 
     if (tok.type === TokenType.STRING) {
+      // Check if this is an interpolated string (STRING INTERP_START ...)
+      if (this.pos + 1 < this.tokens.length && this.tokens[this.pos + 1].type === TokenType.INTERP_START) {
+        return this.parseInterpString();
+      }
       this.advance();
       return { type: N.STR_LIT, value: tok.value };
+    }
+
+    if (tok.type === TokenType.INTERP_START) {
+      // Interpolation at start of string (empty prefix)
+      return this.parseInterpString();
     }
 
     if (tok.type === TokenType.FEW) {
@@ -632,7 +731,72 @@ class Parser {
       return { type: N.ARRAY_LIT, elements };
     }
 
+    // Lambda: anon(params) expr  OR  anon(params) ape_in ... ape_out
+    if (tok.type === TokenType.ANON) {
+      this.advance();
+      this.expect(TokenType.LPAREN);
+      const params = [];
+      if (this.peek().type !== TokenType.RPAREN) {
+        params.push(this.expect(TokenType.IDENT).value);
+        while (this.match(TokenType.COMMA)) params.push(this.expect(TokenType.IDENT).value);
+      }
+      this.expect(TokenType.RPAREN);
+
+      // anon(x) expr  — single expression lambda
+      // anon(x) ape_in ... ape_out  — block lambda
+      if (this.match(TokenType.APE_IN)) {
+        this.skipNewlines();
+        const body = [];
+        while (this.peek().type !== TokenType.APE_OUT) {
+          const stmt = this.parseStatement();
+          if (stmt) body.push(stmt);
+          this.skipNewlines();
+        }
+        this.advance(); // ape_out
+        return { type: N.LAMBDA, params, body };
+      } else {
+        // Single expression — wrap as return
+        const expr = this.parseExpr();
+        return { type: N.LAMBDA, params, body: [{ type: N.RETURN, value: expr }] };
+      }
+    }
+
+    // String interpolation: STRING INTERP_START expr INTERP_END STRING ...
+    // Combine into concatenation
+    if (tok.type === TokenType.INTERP_START || (tok.type === TokenType.STRING && this.tokens[this.pos + 1] && this.tokens[this.pos + 1].type === TokenType.INTERP_START)) {
+      // We're at the start of an interpolated string sequence
+      // Pattern: STRING INTERP_START expr INTERP_END STRING ...
+      return this.parseInterpString();
+    }
+
     throw new Error(`Line ${tok.line}: unexpected token ${tok.type} (${tok.value})`);
+  }
+
+  parseInterpString() {
+    // Build a concatenation from string parts and interpolated expressions
+    let result = null;
+
+    const addPart = (node) => {
+      if (!result) result = node;
+      else result = { type: N.BINOP, op: '+', left: result, right: node };
+    };
+
+    while (true) {
+      const tok = this.peek();
+      if (tok.type === TokenType.STRING) {
+        this.advance();
+        if (tok.value.length > 0) addPart({ type: N.STR_LIT, value: tok.value });
+      } else if (tok.type === TokenType.INTERP_START) {
+        this.advance(); // skip {
+        const expr = this.parseExpr();
+        addPart(expr);
+        this.expect(TokenType.INTERP_END);
+      } else {
+        break;
+      }
+    }
+
+    return result || { type: N.STR_LIT, value: '' };
   }
 }
 
@@ -893,6 +1057,42 @@ class Compiler {
         this.currentChunk.emit(Op.JMP, 0);
         this.currentChunk.emit(0, 0); // needs patching — simplified
         break;
+
+      case N.FOR_EACH: {
+        const ch = this.currentChunk;
+        const idxName = `__sweep_${this.functions.size}_${ch.code.length}`;
+        const collName = `__coll_${this.functions.size}_${ch.code.length}`;
+
+        this.compileExpr(node.collection);
+        ch.emit(Op.STORE, 0); ch.emit(ch.addConstant(collName), 0);
+
+        ch.emitConstant(0, 0);
+        ch.emit(Op.STORE, 0); ch.emit(ch.addConstant(idxName), 0);
+
+        const loopStart = ch.code.length;
+        ch.emit(Op.LOAD, 0); ch.emit(ch.addConstant(idxName), 0);
+        ch.emit(Op.LOAD, 0); ch.emit(ch.addConstant(collName), 0);
+        ch.emitConstant('arr_len', 0); ch.emit(Op.CALL, 0); ch.emit(1, 0);
+        ch.emit(Op.LT, 0);
+
+        const jumpEnd = ch.code.length;
+        ch.emit(Op.JMP_FALSE, 0); ch.emit(0, 0);
+
+        ch.emit(Op.LOAD, 0); ch.emit(ch.addConstant(collName), 0);
+        ch.emit(Op.LOAD, 0); ch.emit(ch.addConstant(idxName), 0);
+        ch.emitConstant('arr_get', 0); ch.emit(Op.CALL, 0); ch.emit(2, 0);
+        ch.emit(Op.STORE, 0); ch.emit(ch.addConstant(node.varName), 0);
+
+        for (const stmt of node.body) this.compileNode(stmt);
+
+        ch.emit(Op.LOAD, 0); ch.emit(ch.addConstant(idxName), 0);
+        ch.emitConstant(1, 0); ch.emit(Op.ADD, 0);
+        ch.emit(Op.STORE, 0); ch.emit(ch.addConstant(idxName), 0);
+
+        ch.emit(Op.JMP, 0); ch.emit(loopStart, 0);
+        ch.code[jumpEnd + 1] = ch.code.length;
+        break;
+      }
     }
   }
 
@@ -978,6 +1178,27 @@ class Compiler {
         this.currentChunk.emit(Op.ARRAY, 0);
         this.currentChunk.emit(node.elements.length, 0);
         break;
+
+      case N.LAMBDA: {
+        // Compile lambda as an anonymous function, push its name
+        const lambdaName = `__lambda_${this.functions.size}`;
+        const chunk = new Chunk(lambdaName);
+        const prevChunk = this.currentChunk;
+        const prevLocals = this.locals;
+        this.currentChunk = chunk;
+        this.locals = node.params.map(p => ({ name: p }));
+        for (const stmt of node.body) this.compileNode(stmt);
+        if (chunk.code[chunk.code.length - 1] !== Op.RETURN) {
+          chunk.emitConstant(null, 0);
+          chunk.emit(Op.RETURN, 0);
+        }
+        this.functions.set(lambdaName, { chunk, params: node.params });
+        this.currentChunk = prevChunk;
+        this.locals = prevLocals;
+        // Push lambda name as a callable
+        this.currentChunk.emitConstant(lambdaName, 0);
+        break;
+      }
     }
   }
 
@@ -1420,8 +1641,15 @@ class VM {
         // Function calls
         case Op.CALL: {
           const argCount = chunk.code[frame.ip++];
-          const funcName = this.stack.pop();
-          const func = this.functions.get(funcName);
+          let funcName = this.stack.pop();
+          let func = this.functions.get(funcName);
+
+          // If not found, check if it's a variable holding a lambda name
+          if (!func && this.globals.has(funcName)) {
+            const resolved = this.globals.get(funcName);
+            if (typeof resolved === 'string') func = this.functions.get(resolved);
+            if (func) funcName = resolved;
+          }
 
           if (!func) {
             // Fall back to native functions
