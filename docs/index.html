@@ -618,18 +618,82 @@ html, body { overflow-x: hidden; }
   <p style="font-family: var(--mono); font-size: 0.9rem; color: var(--text-dim); margin-bottom: 1rem; max-width: 580px;">Now they are. With better keywords. NFA. DYOR.</p>
   <p style="font-family: var(--sans); font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2rem; max-width: 560px; line-height: 1.6;">An AI-forward language. Verbose, text-based keywords that LLMs read like English. <span style="color: var(--green);">greater_than</span> not <span style="color: var(--text-dim);">></span>. <span style="color: var(--green);">divided_by</span> not <span style="color: var(--text-dim);">/</span>. Fewer tokens. Less ambiguity. Built for the age of AI-generated code.</p>
 
-  <div class="keyword-strip">
-    <span><span class="kw">wagmi</span><span class="eq">=</span><span class="js">if</span></span>
-    <span><span class="kw">ngmi</span><span class="eq">=</span><span class="js">else</span></span>
-    <span><span class="kw">paper_hands</span><span class="eq">=</span><span class="js">return</span></span>
-    <span><span class="kw">rug</span><span class="eq">=</span><span class="js">throw</span></span>
-    <span><span class="kw">shill</span><span class="eq">=</span><span class="js">print</span></span>
-    <span><span class="kw">ape_in</span><span class="eq">=</span><span class="js">{</span></span>
-    <span><span class="kw">pump</span><span class="eq">=</span><span class="js">|></span></span>
-    <span><span class="kw">sweep</span><span class="eq">=</span><span class="js">for..in</span></span>
+  <div class="hero-docs" style="width: 100%; max-width: 800px; text-align: left;">
+    <div class="docs-tabs" style="justify-content: center;">
+      <button class="docs-tab active" onclick="switchDocsTab('human')">Human</button>
+      <button class="docs-tab" onclick="switchDocsTab('agent')">Agent</button>
+    </div>
+
+    <!-- HUMAN TAB (hero) -->
+    <div class="docs-panel" id="docs-human">
+      <div class="keyword-strip" style="margin-bottom: 1.5rem;">
+        <span><span class="kw">wagmi</span><span class="eq">=</span><span class="js">if</span></span>
+        <span><span class="kw">ngmi</span><span class="eq">=</span><span class="js">else</span></span>
+        <span><span class="kw">paper_hands</span><span class="eq">=</span><span class="js">return</span></span>
+        <span><span class="kw">rug</span><span class="eq">=</span><span class="js">throw</span></span>
+        <span><span class="kw">shill</span><span class="eq">=</span><span class="js">print</span></span>
+        <span><span class="kw">ape_in</span><span class="eq">=</span><span class="js">{</span></span>
+        <span><span class="kw">pump</span><span class="eq">=</span><span class="js">|></span></span>
+        <span><span class="kw">sweep</span><span class="eq">=</span><span class="js">for..in</span></span>
+      </div>
+      <div style="background: var(--bg2); border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-family: var(--mono); font-size: 0.8rem; text-align: left;">
+        <span style="color: var(--text-dim);"># one-click install</span><br>
+        <span style="color: var(--green);">git clone</span> https://github.com/piske-alex/brolang && <span style="color: var(--green);">cd</span> brolang<br>
+        <span style="color: var(--green);">node</span> brolang-vm.js doom-play.bro <span style="color: var(--text-dim);"># play DOOM</span>
+      </div>
+    </div>
+
+    <!-- AGENT TAB (hero) -->
+    <div class="docs-panel hidden" id="docs-agent">
+      <p style="font-family: var(--mono); font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.75rem; text-align: center;">Feed this to your LLM. Or fetch <a href="llms.txt" style="color: var(--green);">llms.txt</a> directly.</p>
+      <pre style="background: var(--bg2); border: 1px solid #222; border-radius: 8px; padding: 1rem; font-family: var(--mono); font-size: 0.72rem; color: var(--text); line-height: 1.5; overflow-x: auto; white-space: pre-wrap; max-height: 320px; overflow-y: auto; text-align: left;" id="llms-txt"># BroLang — llms.txt
+
+> Compiled language with crypto-bro keywords, bytecode VM, native x86-64 backend.
+
+## Syntax
+gm/gn: program start/end. ser x is 5: variable. hodl PI is 3.14: constant.
+based name(params) ... gg: function. paper_hands value: return.
+wagmi condition ... ngmi ... fr: if/else/endif.
+to_the_moon condition ... gg: while loop.
+sweep item in arr ape_in ... ape_out: for-each.
+shill "text" or shill "hello {name}": print (with interpolation).
+anon(x) x times 2: lambda. value pump fn: pipe (|>).
+ape_into degen_math: import module.
+ape_in/ape_out: { } block delimiters. STOP RUG.: alt program end.
+
+## Operators (text-based)
+plus minus times divided_by mod: arithmetic
+equals greater_than less_than gte lte: comparison
+and or not: logic. is: assignment. few/cope: true/false.
+
+## Modules (via ape_into)
+degen_math: floor ceil sqrt abs sin cos pow min max random pi
+degen_string: char_at str_len upper lower trim substr replace split join contains
+degen_array: arr_new arr_len arr_get arr_set arr_push arr_pop arr_sort
+degen_time: now sleep
+
+## Example
+```
+gm
+ape_into degen_math
+hodl FEE is 0.003
+ser balance is 1000
+based apply_fee(amount, rate)
+  paper_hands amount times (1 minus rate)
+gg
+shill "After fee: {balance pump apply_fee(FEE)}"
+gn
+```
+
+Run: node brolang-vm.js file.bro | Native: node brolang-native.js file.bro
+Source: https://github.com/piske-alex/brolang</pre>
+      <div style="text-align: center; margin-top: 0.75rem;">
+        <button class="btn btn-gh" style="font-size: 0.75rem; padding: 0.3rem 0.8rem;" onclick="navigator.clipboard.writeText(document.getElementById('llms-txt').textContent)">Copy llms.txt</button>
+      </div>
+    </div>
   </div>
 
-  <div class="hero-actions">
+  <div class="hero-actions" style="margin-top: 1.5rem;">
     <a href="#game-section" class="btn btn-play">Play DOOM.bro</a>
     <a href="#repl-section" class="btn btn-repl">Try the REPL</a>
     <a href="https://github.com/piske-alex/brolang" target="_blank" class="btn btn-gh">GitHub</a>
@@ -754,165 +818,7 @@ STOP RUG.</textarea>
   </div>
 </section>
 
-<!-- ═══════ SPEC ═══════ -->
-<!-- ═══════ DOCS (Human / Agent tabs) ═══════ -->
-<section id="docs-section">
-  <h2 class="section-title"><span class="accent">Docs</span></h2>
-
-  <div class="docs-tabs">
-    <button class="docs-tab active" onclick="switchDocsTab('human')">Human</button>
-    <button class="docs-tab" onclick="switchDocsTab('agent')">Agent</button>
-  </div>
-
-  <!-- HUMAN TAB -->
-  <div class="docs-panel" id="docs-human">
-
-    <h3 style="font-family: var(--mono); color: #fff; margin-bottom: 1rem; font-size: 1.1rem;">Quick Start</h3>
-    <div style="background: var(--bg2); border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 2rem; font-family: var(--mono); font-size: 0.85rem;">
-      <span style="color: var(--text-dim);"># Install and run</span><br>
-      <span style="color: var(--green);">git clone</span> https://github.com/piske-alex/brolang<br>
-      <span style="color: var(--green);">cd</span> brolang<br>
-      <span style="color: var(--green);">node</span> brolang-vm.js uniswap-compiled.bro<br><br>
-      <span style="color: var(--text-dim);"># Play DOOM</span><br>
-      <span style="color: var(--green);">node</span> brolang-vm.js doom-play.bro<br><br>
-      <span style="color: var(--text-dim);"># Compile to native x86-64 ELF (no runtime)</span><br>
-      <span style="color: var(--green);">node</span> brolang-native.js hello.bro<br>
-      <span style="color: var(--green);">./</span>hello.elf
-    </div>
-
-    <h3 style="font-family: var(--mono); color: #fff; margin-bottom: 1rem; font-size: 1.1rem;">Keywords</h3>
-    <div class="spec-grid">
-      <div class="spec-row"><span class="kw">gm / gn</span><span class="arrow">&rarr;</span><span class="meaning">program start / end</span></div>
-      <div class="spec-row"><span class="kw">ser / hodl</span><span class="arrow">&rarr;</span><span class="meaning">let / const</span></div>
-      <div class="spec-row"><span class="kw">based / gg</span><span class="arrow">&rarr;</span><span class="meaning">function / end block</span></div>
-      <div class="spec-row"><span class="kw">paper_hands</span><span class="arrow">&rarr;</span><span class="meaning">return</span></div>
-      <div class="spec-row"><span class="kw">wagmi / ngmi / fr</span><span class="arrow">&rarr;</span><span class="meaning">if / else / end if</span></div>
-      <div class="spec-row"><span class="kw">to_the_moon / gg</span><span class="arrow">&rarr;</span><span class="meaning">while / end loop</span></div>
-      <div class="spec-row"><span class="kw">shill / rug</span><span class="arrow">&rarr;</span><span class="meaning">print / throw</span></div>
-      <div class="spec-row"><span class="kw">few / cope</span><span class="arrow">&rarr;</span><span class="meaning">true / false</span></div>
-      <div class="spec-row"><span class="kw">ape_in / ape_out</span><span class="arrow">&rarr;</span><span class="meaning">{ / }</span></div>
-      <div class="spec-row"><span class="kw">sweep / in</span><span class="arrow">&rarr;</span><span class="meaning">for each</span></div>
-      <div class="spec-row"><span class="kw">pump</span><span class="arrow">&rarr;</span><span class="meaning">|> pipe</span></div>
-      <div class="spec-row"><span class="kw">anon</span><span class="arrow">&rarr;</span><span class="meaning">lambda</span></div>
-      <div class="spec-row"><span class="kw">ape_into</span><span class="arrow">&rarr;</span><span class="meaning">import module</span></div>
-      <div class="spec-row"><span class="kw">STOP RUG.</span><span class="arrow">&rarr;</span><span class="meaning">program end (COBOL)</span></div>
-      <div class="spec-row"><span class="kw">plus / minus</span><span class="arrow">&rarr;</span><span class="meaning">+ / -</span></div>
-      <div class="spec-row"><span class="kw">times / divided_by</span><span class="arrow">&rarr;</span><span class="meaning">* / /</span></div>
-      <div class="spec-row"><span class="kw">equals</span><span class="arrow">&rarr;</span><span class="meaning">===</span></div>
-      <div class="spec-row"><span class="kw">greater_than / less_than</span><span class="arrow">&rarr;</span><span class="meaning">&gt; / &lt;</span></div>
-    </div>
-
-    <h3 style="font-family: var(--mono); color: #fff; margin: 2rem 0 1rem; font-size: 1.1rem;">Compiler Pipeline</h3>
-    <div class="pipeline">
-      <span class="stage active">.bro source</span>
-      <span class="arrow">&rarr;</span>
-      <span class="stage">Lexer</span>
-      <span class="arrow">&rarr;</span>
-      <span class="stage">Parser</span>
-      <span class="arrow">&rarr;</span>
-      <span class="stage">AST</span>
-      <span class="arrow">&rarr;</span>
-      <span class="stage">Compiler</span>
-      <span class="arrow">&rarr;</span>
-      <span class="stage active">Bytecode</span>
-      <span class="arrow">&rarr;</span>
-      <span class="stage">Stack VM</span>
-    </div>
-    <p style="color: var(--text-dim); margin-top: 1rem; font-size: 0.85rem;">
-      Also compiles to native x86-64 ELF binaries. No runtime. Raw syscalls.
-    </p>
-  </div>
-
-  <!-- AGENT TAB -->
-  <div class="docs-panel hidden" id="docs-agent">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-      <h3 style="font-family: var(--mono); color: #fff; font-size: 1.1rem;">llms.txt</h3>
-      <button class="btn btn-gh" style="font-size: 0.75rem; padding: 0.3rem 0.8rem;" onclick="navigator.clipboard.writeText(document.getElementById('llms-txt').textContent)">Copy</button>
-    </div>
-    <pre id="llms-txt" style="background: var(--bg2); border: 1px solid #222; border-radius: 8px; padding: 1.5rem; font-family: var(--mono); font-size: 0.8rem; color: var(--text); line-height: 1.6; overflow-x: auto; white-space: pre-wrap;">
-# BroLang — llms.txt
-
-> BroLang is a compiled programming language with crypto-bro keywords.
-> It has a bytecode VM, a native x86-64 backend, and COBOL-style syntax.
-> All keywords are case-insensitive. Programs use .bro file extension.
-
-## How to write BroLang
-
-A program starts with `gm` and ends with `gn` (or `STOP RUG.`).
-Variables: `ser x is 5` (mutable), `hodl PI is 3.14` (constant).
-Functions: `based name(params) ... gg` or `based name(params) ape_in ... ape_out`.
-Control flow: `wagmi condition ... ngmi ... fr` (if/else/endif).
-Loops: `to_the_moon condition ... gg` (while).
-For-each: `sweep item in collection ape_in ... ape_out`.
-Print: `shill "text"` or `shill "hello {name}"` (interpolation).
-Return: `paper_hands value`.
-Lambda: `ser fn is anon(x) x times 2`.
-Pipe: `value pump fn pump fn2` equals `fn2(fn(value))`.
-Import: `ape_into degen_math` loads a standard library module.
-
-## Operators (all text-based, no symbols)
-
-Arithmetic: plus (+), minus (-), times (*), divided_by (/), mod (%)
-Comparison: equals (===), greater_than (>), less_than (<), gte (>=), lte (<=)
-Logic: and (&&), or (||), not (!)
-Assignment: `ser x is expr` or `x is expr`
-
-## Types
-
-Numbers (float64), strings (double-quoted), booleans (few/cope),
-null (probably_nothing), arrays ([1, 2, 3]).
-
-## COBOL-style syntax (optional)
-
-Programs can use IDENTIFICATION DIVISION., DATA DIVISION.,
-PROCEDURE DIVISION., and MAIN SECTION. as decorative headers.
-STOP RUG. replaces gn. Keywords can be UPPERCASE.
-ape_in/ape_out replace gg/fr as block delimiters.
-
-## Standard library modules (loaded via ape_into)
-
-degen_math: floor, ceil, sqrt, abs, sin, cos, pow, min, max, random, pi
-degen_string: char_at, str_len, upper, lower, trim, substr, replace, split, join, contains, starts_with, ends_with, to_number, to_string, repeat
-degen_array: arr_new, arr_len, arr_get, arr_set, arr_push, arr_pop, arr_sort, arr_reverse, arr_contains, arr_index_of
-degen_time: now, sleep
-degen_gfx: hires, pixel, vline, rect, hflush, clear_screen (graphics)
-degen_game: game_init, key, zbuf_*, enemy_* (game engine)
-
-## Example
-
-```
-gm
-ape_into degen_math
-ape_into degen_string
-
-hodl TAX_RATE is 0.003
-ser balance is 1000
-
-based apply_fee(amount, rate)
-  paper_hands amount times (1 minus rate)
-gg
-
-ser after_fee is balance pump apply_fee(TAX_RATE)
-shill "Balance after fee: {after_fee}"
-
-wagmi after_fee greater_than 500
-  shill "still solvent ser"
-ngmi
-  shill "ngmi"
-fr
-
-gn
-```
-
-## Running BroLang
-
-- Bytecode VM: `node brolang-vm.js program.bro`
-- Native x86-64: `node brolang-native.js program.bro && ./program.elf`
-- Browser REPL: https://piske-alex.github.io/brolang/
-- Source: https://github.com/piske-alex/brolang
-</pre>
-  </div>
-</section>
+<!-- Old docs section removed — now in hero -->
 
 <!-- ═══════ FOOTER ═══════ -->
 <footer>
