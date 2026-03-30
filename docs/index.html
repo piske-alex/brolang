@@ -536,20 +536,20 @@ nfa Try editing this code and clicking Run.
 hodl GREETING is "wagmi"
 ser count is 0
 
-based shout(msg, times)
+based shout(msg, count)
   ser i is 0
-  to_the_moon i less_than times
+  to_the_moon i less_than count
     shill msg
     i is i plus 1
   gg
-  paper_hands times
+  paper_hands count
 gg
 
 shill "gm ser"
 shill "1 + 1 = " plus (1 plus 1)
 
 ser result is shout(GREETING, 3)
-shill "Shouted " plus result plus " times"
+shill "Shouted " plus result plus " x"
 
 wagmi result greater_than 2
   shill "few (that means true)"
