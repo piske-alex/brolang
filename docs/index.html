@@ -1699,7 +1699,7 @@ function startGame(){
     const tokens=lex(DOOM_SRC);
     const ast=new Parser(tokens).parse();
     const program=new Compiler().compile(ast);
-    gameVM=new BroVM(program,{canvas,onPrint:s=>console.log('[doom]',s)});
+    gameVM=new BroVM(program,{canvas,onPrint:s=>console.log('[doom]',s),maxSteps:Infinity});
 
     gameVM.run().then(()=>{
       const gs=gameVM.globals.get('game_state');
