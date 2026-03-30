@@ -454,6 +454,87 @@ footer a:hover { color: var(--red); }
 
 /* ─── RESPONSIVE ─── */
 
+/* ─── TOUCH CONTROLS ─── */
+
+.touch-controls {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0.5rem;
+  max-width: 640px;
+  margin: 0 auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.touch-controls.hidden { display: none; }
+
+.touch-left, .touch-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.touch-mid-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.touch-btn {
+  font-family: var(--mono);
+  font-weight: 700;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background: var(--bg3);
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.touch-btn:active, .touch-btn.pressed {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.touch-up, .touch-down { width: 52px; height: 44px; font-size: 0.85rem; }
+.touch-side { width: 52px; height: 44px; font-size: 0.85rem; }
+
+.touch-action {
+  width: 70px;
+  height: 50px;
+  font-size: 0.8rem;
+}
+
+.touch-shoot { background: rgba(255,68,68,0.2); border-color: var(--red); color: var(--red); }
+.touch-shoot:active, .touch-shoot.pressed { background: var(--red); color: #fff; }
+
+.touch-jump { background: rgba(68,255,102,0.15); border-color: var(--green); color: var(--green); }
+.touch-jump:active, .touch-jump.pressed { background: var(--green); color: #000; }
+
+.touch-weapons {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+
+.touch-wep {
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.touch-wep:active, .touch-wep.pressed {
+  background: var(--yellow);
+  color: #000;
+}
+
+.desktop-only { }
+
 @media (max-width: 700px) {
   .keyword-strip { gap: 0.4rem; }
   .keyword-strip span { font-size: 0.65rem; padding: 0.2rem 0.4rem; }
@@ -521,7 +602,7 @@ html, body { overflow-x: hidden; }
       <button class="btn btn-play" onclick="startGame()">Play Again</button>
     </div>
   </div>
-  <div class="game-controls">
+  <div class="game-controls desktop-only">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move
     &nbsp;&nbsp;
     <kbd>Space</kbd> shoot
@@ -529,6 +610,27 @@ html, body { overflow-x: hidden; }
     <kbd>Q</kbd> quit
     &nbsp;&nbsp;|&nbsp;&nbsp;
     <kbd>E</kbd> jump &nbsp;&nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> weapons &nbsp;&nbsp;| 3 levels. 15 enemies.
+  </div>
+
+  <!-- Mobile touch controls -->
+  <div class="touch-controls hidden" id="touch-controls">
+    <div class="touch-left">
+      <button class="touch-btn touch-up" data-key="w">W</button>
+      <div class="touch-mid-row">
+        <button class="touch-btn touch-side" data-key="a">A</button>
+        <button class="touch-btn touch-side" data-key="d">D</button>
+      </div>
+      <button class="touch-btn touch-down" data-key="s">S</button>
+    </div>
+    <div class="touch-right">
+      <button class="touch-btn touch-action touch-shoot" data-key="space">FIRE</button>
+      <button class="touch-btn touch-action touch-jump" data-key="e">JUMP</button>
+      <div class="touch-weapons">
+        <button class="touch-btn touch-wep" data-key="1">1</button>
+        <button class="touch-btn touch-wep" data-key="2">2</button>
+        <button class="touch-btn touch-wep" data-key="3">3</button>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1939,6 +2041,7 @@ function startGame(){
       const titleEl=document.getElementById('end-title');
       const statsEl=document.getElementById('end-stats');
       endEl.classList.remove('hidden');
+      document.getElementById('touch-controls').classList.add('hidden');
       if(gs===1){titleEl.textContent='YOU WIN';titleEl.style.color='var(--green)';statsEl.innerHTML=`Kills: 4/4 | Ammo: ${ammo} | HP: ${hp}%`;}
       else if(gs===2){titleEl.textContent='YOU DIED';titleEl.style.color='var(--red)';statsEl.innerHTML=`Kills: ${kills}/4`;}
       else{titleEl.textContent='QUIT';titleEl.style.color='var(--yellow)';statsEl.innerHTML=`Kills: ${kills}/4`;}
@@ -1970,6 +2073,54 @@ document.getElementById('game-overlay').addEventListener('click',startGame);
 
 // Prevent space from scrolling when game is active
 document.addEventListener('keydown',e=>{if(e.key===' '&&gameVM&&gameVM.gameMode)e.preventDefault();});
+
+// ── Mobile touch controls ──
+const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isMobile) {
+  document.querySelector('.desktop-only').style.display = 'none';
+  // Show touch controls when game starts
+  const origStart = startGame;
+  startGame = function() {
+    origStart();
+    document.getElementById('touch-controls').classList.remove('hidden');
+  };
+  // Update overlay text
+  document.querySelector('.game-overlay p').textContent = 'Tap to play — compiled BroLang bytecode';
+}
+
+// Touch button handling — repeat keys while held
+document.querySelectorAll('.touch-btn').forEach(btn => {
+  let interval = null;
+  const key = btn.dataset.key;
+
+  const press = (e) => {
+    e.preventDefault();
+    btn.classList.add('pressed');
+    if (gameVM && gameVM.gameMode) {
+      gameVM.keyQueue.push(key);
+      // Repeat for movement keys (not shoot/weapons)
+      if (['w','a','s','d'].includes(key)) {
+        interval = setInterval(() => {
+          if (gameVM && gameVM.gameMode) gameVM.keyQueue.push(key);
+        }, 80);
+      }
+    }
+  };
+
+  const release = (e) => {
+    e.preventDefault();
+    btn.classList.remove('pressed');
+    if (interval) { clearInterval(interval); interval = null; }
+  };
+
+  btn.addEventListener('touchstart', press, { passive: false });
+  btn.addEventListener('touchend', release, { passive: false });
+  btn.addEventListener('touchcancel', release, { passive: false });
+  // Also support mouse for testing
+  btn.addEventListener('mousedown', press);
+  btn.addEventListener('mouseup', release);
+  btn.addEventListener('mouseleave', release);
+});
 </script>
 </body>
 </html>
