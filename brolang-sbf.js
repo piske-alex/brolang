@@ -277,164 +277,252 @@ function buildSolanaELF(emitter) {
   const code = emitter.getCode();
   const rodata = Buffer.from(emitter.rodata);
 
-  // Solana ELF layout:
-  // - ELF header (64 bytes)
-  // - Program headers
-  // - Section headers (at end)
-  // - .text section (code)
-  // - .rodata section (strings)
-  // - .shstrtab section (section names)
-  //
-  // Solana expects:
-  // - e_machine = EM_BPF (247)
-  // - e_flags = 0x20 (SBFv2)
-  // - Virtual address starting at 0x100000000
-  // - .text section with the bytecode
-  // - Entrypoint at start of .text
+  // Solana requires:
+  // - ET_DYN (shared object, not ET_EXEC)
+  // - EM_BPF (247), flags 0x20 (SBFv2)
+  // - .text (code), .rodata (data)
+  // - .dynsym with "entrypoint" symbol
+  // - .dynstr with symbol names
+  // - .dynamic section
+  // - .shstrtab for section names
+  // - PT_LOAD segments for text + rodata
+  // - PT_DYNAMIC segment
 
+  // SBFv1: text at 0x100000000, rodata immediately after in the same region
   const TEXT_VADDR = 0x100000000;
-  const RODATA_VADDR = 0x100000000 + 0x100000;
 
-  // Section name strings
-  const shstrtab = Buffer.from('\0.text\0.rodata\0.shstrtab\0');
-  const SH_NAME_TEXT = 1;
-  const SH_NAME_RODATA = 7;
-  const SH_NAME_SHSTRTAB = 15;
+  // Build section content first
 
-  // Layout calculations
-  const ELF_HDR_SIZE = 64;
-  const PHDR_SIZE = 56;
-  const SHDR_SIZE = 64;
-  const NUM_PHDRS = 2; // code + rodata
-  const NUM_SHDRS = 4; // null + .text + .rodata + .shstrtab
+  // .dynstr: null-terminated string table for dynamic symbols
+  // Layout: \0 "entrypoint\0"
+  const dynstr = Buffer.from('\0entrypoint\0');
+  const DYNSTR_IDX_ENTRYPOINT = 1;
 
-  const PHDRS_OFFSET = ELF_HDR_SIZE;
-  const PHDRS_END = PHDRS_OFFSET + PHDR_SIZE * NUM_PHDRS;
+  // .dynsym: dynamic symbol table
+  // Each entry is 24 bytes (Elf64_Sym)
+  // Entry 0: null symbol
+  // Entry 1: "entrypoint" symbol
+  const SYMTAB_ENTRY_SIZE = 24;
+  const dynsym = Buffer.alloc(SYMTAB_ENTRY_SIZE * 2, 0);
+  // Entry 0: null (already zeroed)
+  // Entry 1: entrypoint
+  let sp = SYMTAB_ENTRY_SIZE;
+  dynsym.writeUInt32LE(DYNSTR_IDX_ENTRYPOINT, sp);    // st_name
+  dynsym[sp + 4] = (1 << 4) | 2;                       // st_info: STB_GLOBAL | STT_FUNC
+  dynsym[sp + 5] = 0;                                   // st_other: STV_DEFAULT
+  dynsym.writeUInt16LE(1, sp + 6);                      // st_shndx: index of .text section
+  // st_value: patched after layout with TEXT_OFF
+  // dynsym[sp+8..sp+16] left as 0, patched below
+  dynsym.writeBigUInt64LE(BigInt(code.length), sp + 16);// st_size
 
-  // Align sections
-  const TEXT_OFFSET = (PHDRS_END + 15) & ~15;
-  const TEXT_SIZE = code.length;
+  // .dynamic: dynamic section entries
+  // Each entry: 16 bytes (d_tag: 8, d_val: 8)
+  // We need: DT_SYMTAB, DT_STRTAB, DT_STRSZ, DT_SYMENT, DT_NULL
+  const DT_NULL = 0, DT_SYMTAB = 6, DT_STRSZ = 10, DT_SYMENT = 11, DT_STRTAB = 5;
+  const dynEntries = 5;
+  const dynamic = Buffer.alloc(16 * dynEntries, 0);
+  // Addresses will be patched after layout
 
-  const RODATA_OFFSET = ((TEXT_OFFSET + TEXT_SIZE) + 15) & ~15;
-  const RODATA_SIZE = rodata.length;
+  // .shstrtab: section name strings
+  const shstrtab = Buffer.from('\0.text\0.rodata\0.dynstr\0.dynsym\0.dynamic\0.shstrtab\0');
+  const SH_TEXT = 1;        // offset of ".text"
+  const SH_RODATA = 7;     // offset of ".rodata"
+  const SH_DYNSTR = 15;    // offset of ".dynstr"
+  const SH_DYNSYM = 23;    // offset of ".dynsym"
+  const SH_DYNAMIC = 31;   // offset of ".dynamic"
+  const SH_SHSTRTAB = 40;  // offset of ".shstrtab"
 
-  const SHSTRTAB_OFFSET = ((RODATA_OFFSET + RODATA_SIZE) + 15) & ~15;
-  const SHSTRTAB_SIZE = shstrtab.length;
+  // Layout
+  const ELF_HDR = 64;
+  const PHDR = 56;
+  const SHDR = 64;
+  const NUM_PHDRS = 2;  // single LOAD + DYNAMIC
+  const NUM_SHDRS = 7;  // null + .text + .rodata + .dynstr + .dynsym + .dynamic + .shstrtab
 
-  const SHDRS_OFFSET = ((SHSTRTAB_OFFSET + SHSTRTAB_SIZE) + 15) & ~15;
-  const TOTAL_SIZE = SHDRS_OFFSET + SHDR_SIZE * NUM_SHDRS;
+  const align16 = (v) => (v + 15) & ~15;
+
+  const PHDRS_OFF = ELF_HDR;
+  const PHDRS_END = PHDRS_OFF + PHDR * NUM_PHDRS;
+
+  const TEXT_OFF = align16(PHDRS_END);
+  const TEXT_SZ = code.length;
+
+  const RODATA_OFF = align16(TEXT_OFF + TEXT_SZ);
+  const RODATA_SZ = rodata.length;
+
+  const DYNSTR_OFF = align16(RODATA_OFF + RODATA_SZ);
+  const DYNSTR_SZ = dynstr.length;
+
+  const DYNSYM_OFF = align16(DYNSTR_OFF + DYNSTR_SZ);
+  const DYNSYM_SZ = dynsym.length;
+
+  const DYNAMIC_OFF = align16(DYNSYM_OFF + DYNSYM_SZ);
+  const DYNAMIC_SZ = dynamic.length;
+
+  const SHSTRTAB_OFF = align16(DYNAMIC_OFF + DYNAMIC_SZ);
+  const SHSTRTAB_SZ = shstrtab.length;
+
+  const SHDRS_OFF = align16(SHSTRTAB_OFF + SHSTRTAB_SZ);
+  const TOTAL = SHDRS_OFF + SHDR * NUM_SHDRS;
+
+  // Virtual addresses for non-text sections (in rodata region)
+  // VA = base + file offset (single LOAD maps from offset 0)
+  const RODATA_VA = TEXT_VADDR + RODATA_OFF;
+  const DYNSTR_VA = TEXT_VADDR + DYNSTR_OFF;
+  const DYNSYM_VA = TEXT_VADDR + DYNSYM_OFF;
+  const DYNAMIC_VA = TEXT_VADDR + DYNAMIC_OFF;
+
+  // Patch entrypoint symbol value (virtual address within .text)
+  dynsym.writeBigUInt64LE(BigInt(TEXT_VADDR + TEXT_OFF), SYMTAB_ENTRY_SIZE + 8);
+
+  // Patch .dynamic entries with actual addresses
+  let dp = 0;
+  // DT_SYMTAB
+  dynamic.writeBigUInt64LE(BigInt(DT_SYMTAB), dp); dynamic.writeBigUInt64LE(BigInt(DYNSYM_VA), dp + 8); dp += 16;
+  // DT_STRTAB
+  dynamic.writeBigUInt64LE(BigInt(DT_STRTAB), dp); dynamic.writeBigUInt64LE(BigInt(DYNSTR_VA), dp + 8); dp += 16;
+  // DT_STRSZ
+  dynamic.writeBigUInt64LE(BigInt(DT_STRSZ), dp); dynamic.writeBigUInt64LE(BigInt(DYNSTR_SZ), dp + 8); dp += 16;
+  // DT_SYMENT
+  dynamic.writeBigUInt64LE(BigInt(DT_SYMENT), dp); dynamic.writeBigUInt64LE(BigInt(SYMTAB_ENTRY_SIZE), dp + 8); dp += 16;
+  // DT_NULL
+  dynamic.writeBigUInt64LE(0n, dp); dynamic.writeBigUInt64LE(0n, dp + 8);
 
   // Patch rodata addresses in code
-  const RODATA_ACTUAL_VADDR = RODATA_VADDR;
   if (emitter._patches) {
     for (const patch of emitter._patches) {
       if (patch.type === 'rodata_addr') {
         const info = emitter.rodataLabels[patch.label];
-        const addr = RODATA_ACTUAL_VADDR + info.offset;
+        const addr = RODATA_VA + info.offset;
         const lo = addr & 0xFFFFFFFF;
         const hi = Math.floor(addr / 0x100000000) & 0xFFFFFFFF;
-        // Patch the lddw instruction (2 slots, 16 bytes)
-        // First slot: imm = lo32
-        const insn1 = emitter.instructions[patch.instrIndex];
-        insn1.writeInt32LE(lo, 4);
-        // Second slot: imm = hi32
-        const insn2 = emitter.instructions[patch.instrIndex + 1];
-        insn2.writeInt32LE(hi, 4);
+        emitter.instructions[patch.instrIndex].writeInt32LE(lo, 4);
+        emitter.instructions[patch.instrIndex + 1].writeInt32LE(hi, 4);
       }
     }
   }
-
-  // Rebuild code after patching
   const patchedCode = Buffer.concat(emitter.instructions);
 
   // Build ELF
-  const elf = Buffer.alloc(TOTAL_SIZE, 0);
+  const elf = Buffer.alloc(TOTAL, 0);
 
   // ── ELF Header ──
-  elf[0] = 0x7F; elf[1] = 0x45; elf[2] = 0x4C; elf[3] = 0x46; // magic
-  elf[4] = 2;    // 64-bit
-  elf[5] = 1;    // little-endian
-  elf[6] = 1;    // ELF version
-  elf[7] = 0;    // OS/ABI
-  elf.writeUInt16LE(2, 16);          // ET_EXEC
-  elf.writeUInt16LE(247, 18);        // EM_BPF
-  elf.writeUInt32LE(1, 20);          // version
-  elf.writeBigUInt64LE(BigInt(TEXT_VADDR), 24);  // entry point
-  elf.writeBigUInt64LE(BigInt(PHDRS_OFFSET), 32);  // phoff
-  elf.writeBigUInt64LE(BigInt(SHDRS_OFFSET), 40);  // shoff
-  elf.writeUInt32LE(0x20, 48);       // flags (SBFv2)
-  elf.writeUInt16LE(ELF_HDR_SIZE, 52);
-  elf.writeUInt16LE(PHDR_SIZE, 54);
+  elf[0] = 0x7F; elf[1] = 0x45; elf[2] = 0x4C; elf[3] = 0x46;
+  elf[4] = 2; elf[5] = 1; elf[6] = 1; elf[7] = 0;
+  elf.writeUInt16LE(3, 16);             // ET_DYN (shared object!)
+  elf.writeUInt16LE(247, 18);           // EM_BPF
+  elf.writeUInt32LE(1, 20);
+  elf.writeBigUInt64LE(BigInt(TEXT_VADDR + TEXT_OFF), 24);  // e_entry = vaddr of .text start
+  elf.writeBigUInt64LE(BigInt(PHDRS_OFF), 32);    // e_phoff
+  elf.writeBigUInt64LE(BigInt(SHDRS_OFF), 40);    // e_shoff
+  elf.writeUInt32LE(0x00, 48);          // flags (SBFv1 — devnet compatible)
+  elf.writeUInt16LE(ELF_HDR, 52);
+  elf.writeUInt16LE(PHDR, 54);
   elf.writeUInt16LE(NUM_PHDRS, 56);
-  elf.writeUInt16LE(SHDR_SIZE, 58);
+  elf.writeUInt16LE(SHDR, 58);
   elf.writeUInt16LE(NUM_SHDRS, 60);
-  elf.writeUInt16LE(3, 62);          // shstrndx (index of .shstrtab)
+  elf.writeUInt16LE(6, 62);            // shstrndx = index of .shstrtab
 
-  // ── Program Header 1: .text (RX) ──
-  let pos = PHDRS_OFFSET;
-  elf.writeUInt32LE(1, pos);           // PT_LOAD
-  elf.writeUInt32LE(5, pos + 4);       // PF_R | PF_X
-  elf.writeBigUInt64LE(BigInt(TEXT_OFFSET), pos + 8);   // p_offset
-  elf.writeBigUInt64LE(BigInt(TEXT_VADDR), pos + 16);   // p_vaddr
-  elf.writeBigUInt64LE(BigInt(TEXT_VADDR), pos + 24);   // p_paddr
-  elf.writeBigUInt64LE(BigInt(TEXT_SIZE), pos + 32);    // p_filesz
-  elf.writeBigUInt64LE(BigInt(TEXT_SIZE), pos + 40);    // p_memsz
-  elf.writeBigUInt64LE(BigInt(0x1000), pos + 48);       // p_align
-
-  // ── Program Header 2: .rodata (R) ──
-  pos = PHDRS_OFFSET + PHDR_SIZE;
-  elf.writeUInt32LE(1, pos);           // PT_LOAD
-  elf.writeUInt32LE(4, pos + 4);       // PF_R
-  elf.writeBigUInt64LE(BigInt(RODATA_OFFSET), pos + 8);
-  elf.writeBigUInt64LE(BigInt(RODATA_ACTUAL_VADDR), pos + 16);
-  elf.writeBigUInt64LE(BigInt(RODATA_ACTUAL_VADDR), pos + 24);
-  elf.writeBigUInt64LE(BigInt(RODATA_SIZE), pos + 32);
-  elf.writeBigUInt64LE(BigInt(RODATA_SIZE), pos + 40);
+  // ── Program Header 1: Single LOAD covering text + rodata + dyn (RX) ──
+  // Map the entire file from offset 0 with base vaddr 0x100000000
+  // The loader maps everything, text is executable, rodata is read
+  const FULL_SZ = DYNAMIC_OFF + DYNAMIC_SZ;
+  let pos = PHDRS_OFF;
+  elf.writeUInt32LE(1, pos);            // PT_LOAD
+  elf.writeUInt32LE(7, pos + 4);        // PF_R|PF_W|PF_X
+  elf.writeBigUInt64LE(0n, pos + 8);    // p_offset = 0
+  elf.writeBigUInt64LE(BigInt(TEXT_VADDR), pos + 16);
+  elf.writeBigUInt64LE(BigInt(TEXT_VADDR), pos + 24);
+  elf.writeBigUInt64LE(BigInt(FULL_SZ), pos + 32);
+  elf.writeBigUInt64LE(BigInt(FULL_SZ), pos + 40);
   elf.writeBigUInt64LE(BigInt(0x1000), pos + 48);
 
-  // ── .text section ──
-  patchedCode.copy(elf, TEXT_OFFSET);
+  // ── Program Header 2: PT_DYNAMIC ──
+  pos += PHDR;
+  elf.writeUInt32LE(2, pos);            // PT_DYNAMIC
+  elf.writeUInt32LE(4, pos + 4);        // PF_R
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_OFF), pos + 8);
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_VA), pos + 16);
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_VA), pos + 24);
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_SZ), pos + 32);
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_SZ), pos + 40);
+  elf.writeBigUInt64LE(BigInt(8), pos + 48);
 
-  // ── .rodata section ──
-  rodata.copy(elf, RODATA_OFFSET);
-
-  // ── .shstrtab section ──
-  shstrtab.copy(elf, SHSTRTAB_OFFSET);
+  // ── Section data ──
+  patchedCode.copy(elf, TEXT_OFF);
+  rodata.copy(elf, RODATA_OFF);
+  dynstr.copy(elf, DYNSTR_OFF);
+  dynsym.copy(elf, DYNSYM_OFF);
+  dynamic.copy(elf, DYNAMIC_OFF);
+  shstrtab.copy(elf, SHSTRTAB_OFF);
 
   // ── Section Headers ──
+  // 0: null (zeroed)
 
-  // SHDR 0: null
-  // (already zeroed)
+  // 1: .text
+  pos = SHDRS_OFF + SHDR;
+  elf.writeUInt32LE(SH_TEXT, pos);
+  elf.writeUInt32LE(1, pos + 4);        // SHT_PROGBITS
+  elf.writeBigUInt64LE(6n, pos + 8);    // SHF_ALLOC|SHF_EXECINSTR
+  elf.writeBigUInt64LE(BigInt(TEXT_VADDR + TEXT_OFF), pos + 16);  // sh_addr = base + offset
+  elf.writeBigUInt64LE(BigInt(TEXT_OFF), pos + 24);
+  elf.writeBigUInt64LE(BigInt(TEXT_SZ), pos + 32);
+  elf.writeBigUInt64LE(8n, pos + 56);
 
-  // SHDR 1: .text
-  pos = SHDRS_OFFSET + SHDR_SIZE;
-  elf.writeUInt32LE(SH_NAME_TEXT, pos);       // sh_name
-  elf.writeUInt32LE(1, pos + 4);              // SHT_PROGBITS
-  elf.writeBigUInt64LE(6n, pos + 8);          // SHF_ALLOC | SHF_EXECINSTR
-  elf.writeBigUInt64LE(BigInt(TEXT_VADDR), pos + 16);  // sh_addr
-  elf.writeBigUInt64LE(BigInt(TEXT_OFFSET), pos + 24); // sh_offset
-  elf.writeBigUInt64LE(BigInt(TEXT_SIZE), pos + 32);   // sh_size
-  elf.writeBigUInt64LE(BigInt(8), pos + 56);           // sh_addralign
+  // 2: .rodata
+  pos = SHDRS_OFF + SHDR * 2;
+  elf.writeUInt32LE(SH_RODATA, pos);
+  elf.writeUInt32LE(1, pos + 4);        // SHT_PROGBITS
+  elf.writeBigUInt64LE(2n, pos + 8);    // SHF_ALLOC
+  elf.writeBigUInt64LE(BigInt(RODATA_VA), pos + 16);
+  elf.writeBigUInt64LE(BigInt(RODATA_OFF), pos + 24);
+  elf.writeBigUInt64LE(BigInt(RODATA_SZ), pos + 32);
+  elf.writeBigUInt64LE(1n, pos + 56);
 
-  // SHDR 2: .rodata
-  pos = SHDRS_OFFSET + SHDR_SIZE * 2;
-  elf.writeUInt32LE(SH_NAME_RODATA, pos);
-  elf.writeUInt32LE(1, pos + 4);              // SHT_PROGBITS
-  elf.writeBigUInt64LE(2n, pos + 8);          // SHF_ALLOC
-  elf.writeBigUInt64LE(BigInt(RODATA_ACTUAL_VADDR), pos + 16);
-  elf.writeBigUInt64LE(BigInt(RODATA_OFFSET), pos + 24);
-  elf.writeBigUInt64LE(BigInt(RODATA_SIZE), pos + 32);
-  elf.writeBigUInt64LE(BigInt(1), pos + 56);
+  // 3: .dynstr
+  pos = SHDRS_OFF + SHDR * 3;
+  elf.writeUInt32LE(SH_DYNSTR, pos);
+  elf.writeUInt32LE(3, pos + 4);        // SHT_STRTAB
+  elf.writeBigUInt64LE(2n, pos + 8);    // SHF_ALLOC
+  elf.writeBigUInt64LE(BigInt(DYNSTR_VA), pos + 16);
+  elf.writeBigUInt64LE(BigInt(DYNSTR_OFF), pos + 24);
+  elf.writeBigUInt64LE(BigInt(DYNSTR_SZ), pos + 32);
+  elf.writeBigUInt64LE(1n, pos + 56);
 
-  // SHDR 3: .shstrtab
-  pos = SHDRS_OFFSET + SHDR_SIZE * 3;
-  elf.writeUInt32LE(SH_NAME_SHSTRTAB, pos);
-  elf.writeUInt32LE(3, pos + 4);              // SHT_STRTAB
+  // 4: .dynsym
+  pos = SHDRS_OFF + SHDR * 4;
+  elf.writeUInt32LE(SH_DYNSYM, pos);
+  elf.writeUInt32LE(11, pos + 4);       // SHT_DYNSYM
+  elf.writeBigUInt64LE(2n, pos + 8);    // SHF_ALLOC
+  elf.writeBigUInt64LE(BigInt(DYNSYM_VA), pos + 16);
+  elf.writeBigUInt64LE(BigInt(DYNSYM_OFF), pos + 24);
+  elf.writeBigUInt64LE(BigInt(DYNSYM_SZ), pos + 32);
+  elf.writeUInt32LE(3, pos + 40);       // sh_link = .dynstr index
+  elf.writeUInt32LE(1, pos + 44);       // sh_info = first global sym
+  elf.writeBigUInt64LE(8n, pos + 48);   // sh_addralign
+  elf.writeBigUInt64LE(BigInt(SYMTAB_ENTRY_SIZE), pos + 56);  // sh_entsize = 24
+
+  // 5: .dynamic
+  pos = SHDRS_OFF + SHDR * 5;
+  elf.writeUInt32LE(SH_DYNAMIC, pos);
+  elf.writeUInt32LE(6, pos + 4);        // SHT_DYNAMIC
+  elf.writeBigUInt64LE(3n, pos + 8);    // SHF_ALLOC|SHF_WRITE
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_VA), pos + 16);
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_OFF), pos + 24);
+  elf.writeBigUInt64LE(BigInt(DYNAMIC_SZ), pos + 32);
+  elf.writeUInt32LE(3, pos + 40);       // sh_link = .dynstr
+  elf.writeBigUInt64LE(8n, pos + 48);   // sh_addralign
+  elf.writeBigUInt64LE(16n, pos + 56);  // sh_entsize = sizeof(Elf64_Dyn)
+
+  // 6: .shstrtab
+  pos = SHDRS_OFF + SHDR * 6;
+  elf.writeUInt32LE(SH_SHSTRTAB, pos);
+  elf.writeUInt32LE(3, pos + 4);        // SHT_STRTAB
   elf.writeBigUInt64LE(0n, pos + 8);
   elf.writeBigUInt64LE(0n, pos + 16);
-  elf.writeBigUInt64LE(BigInt(SHSTRTAB_OFFSET), pos + 24);
-  elf.writeBigUInt64LE(BigInt(SHSTRTAB_SIZE), pos + 32);
-  elf.writeBigUInt64LE(BigInt(1), pos + 56);
+  elf.writeBigUInt64LE(BigInt(SHSTRTAB_OFF), pos + 24);
+  elf.writeBigUInt64LE(BigInt(SHSTRTAB_SZ), pos + 32);
+  elf.writeBigUInt64LE(1n, pos + 56);
 
   return elf;
 }
