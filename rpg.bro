@@ -129,9 +129,27 @@ based close_dialog()
   dialog_active is 0
 gg
 
+based near(nx, ny)
+  ser dx is player_x minus nx
+  ser dy is player_y minus ny
+  wagmi dx less_than 0
+    dx is 0 minus dx
+  fr
+  wagmi dy less_than 0
+    dy is 0 minus dy
+  fr
+  wagmi dx plus dy equals 1
+    paper_hands 1
+  fr
+  wagmi dx equals 0 and dy equals 0
+    paper_hands 1
+  fr
+  paper_hands 0
+gg
+
 based check_npc_interact()
   nfa NPC 0: The Lexer at (5, 3)
-  wagmi player_x equals 4 and player_y equals 3
+  wagmi near(5, 3) equals 1
     wagmi npc_talked_0 equals 0
       show_dialog("THE LEXER", "gm ser. I break source code into tokens.", "I gave you: ser, hodl, wagmi, shill")
       npc_talked_0 is 1
@@ -141,7 +159,7 @@ based check_npc_interact()
     fr
   fr
   nfa NPC 1: The Parser at (15, 5)
-  wagmi player_x equals 14 and player_y equals 5
+  wagmi near(15, 5) equals 1
     wagmi npc_talked_1 equals 0
       show_dialog("THE PARSER", "I read the tokens and build the AST.", "I gave you: based, paper_hands, ape_in")
       npc_talked_1 is 1
@@ -151,7 +169,7 @@ based check_npc_interact()
     fr
   fr
   nfa NPC 2: The VM at (30, 8)
-  wagmi player_x equals 29 and player_y equals 8
+  wagmi near(30, 8) equals 1
     wagmi npc_talked_2 equals 0
       show_dialog("THE VIRTUAL MACHINE", "I execute the bytecode on a stack.", "CONST, ADD, MUL, CALL, RETURN, HALT.")
       npc_talked_2 is 1
@@ -161,7 +179,7 @@ based check_npc_interact()
     fr
   fr
   nfa NPC 3: DOOM Demon at (35, 12)
-  wagmi player_x equals 34 and player_y equals 12
+  wagmi near(35, 12) equals 1
     wagmi npc_talked_3 equals 0
       show_dialog("THE DOOM DEMON", "You found me. I am what they all fear.", "Can. It. Run. DOOM? ...yes. Yes it can.")
       npc_talked_3 is 1
