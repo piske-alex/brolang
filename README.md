@@ -4,6 +4,8 @@ The world's first crypto-native programming language. NFA. DYOR.
 
 Every keyword is crypto-bro speak. Compiles to bytecode. Runs on a custom stack-based virtual machine. Can run DOOM.
 
+**[Play DOOM.bro in your browser](https://piske-alex.github.io/brolang/)** | **[Try the REPL](https://piske-alex.github.io/brolang/#repl-section)**
+
 ## Run DOOM in Claude Code
 
 Clone this repo then paste this into [Claude Code](https://claude.ai/code):
