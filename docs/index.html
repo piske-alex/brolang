@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BroLang — The Crypto-Native Programming Language</title>
+<meta name="description" content="A programming language where every keyword is crypto slang. Compiles to bytecode. Runs on a VM. Can run DOOM.">
+<meta property="og:title" content="BroLang — Can It Run DOOM?">
+<meta property="og:description" content="A crypto-bro programming language with a bytecode compiler and stack VM. Yes, it runs DOOM.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #08080c;
+  --bg2: #0e0e14;
+  --bg3: #16161f;
+  --red: #ff4444;
+  --red-dim: #aa2222;
+  --green: #44ff66;
+  --yellow: #ffcc33;
+  --blue: #4488ff;
+  --text: #c8c8d0;
+  --text-dim: #666680;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ─── HERO ─── */
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,68,68,0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 50% 100%, rgba(68,255,102,0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
+  position: relative;
+}
+
+.logo .bro { color: var(--red); }
+.logo .lang { color: var(--text); }
+
+.tagline {
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  color: var(--text-dim);
+  margin-bottom: 2.5rem;
+  font-family: var(--mono);
+}
+
+.keyword-strip {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 3rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.keyword-strip span {
+  background: var(--bg3);
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #222230;
+}
+
+.keyword-strip .kw { color: var(--red); }
+.keyword-strip .eq { color: var(--text-dim); margin: 0 0.2rem; }
+.keyword-strip .js { color: var(--green); }
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  font-family: var(--mono);
+  font-size: 1rem;
+  padding: 0.8rem 2rem;
+  border: 2px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-play {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+.btn-play:hover { background: #ff5555; box-shadow: 0 0 20px rgba(255,68,68,0.3); }
+
+.btn-repl {
+  background: transparent;
+  border-color: var(--green);
+  color: var(--green);
+}
+.btn-repl:hover { background: rgba(68,255,102,0.1); }
+
+.btn-gh {
+  background: transparent;
+  border-color: #444;
+  color: var(--text);
+}
+.btn-gh:hover { background: rgba(255,255,255,0.05); }
+
+/* ─── SECTIONS ─── */
+
+section {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 4rem 2rem;
+}
+
+.section-title {
+  font-family: var(--mono);
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: #fff;
+}
+
+.section-title .accent { color: var(--red); }
+
+/* ─── GAME SECTION ─── */
+
+#game-section {
+  max-width: 100%;
+  padding: 4rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-container {
+  position: relative;
+  background: #000;
+  border: 2px solid #222;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(255,68,68,0.1), 0 0 80px rgba(0,0,0,0.5);
+}
+
+.game-container canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.85);
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+
+.game-overlay.hidden { opacity: 0; pointer-events: none; }
+
+.game-overlay h2 {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  color: var(--red);
+  margin-bottom: 0.5rem;
+}
+
+.game-overlay p {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.game-overlay .play-icon {
+  font-size: 3rem;
+  color: var(--red);
+  margin-bottom: 1rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.game-controls {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.game-controls kbd {
+  background: var(--bg3);
+  border: 1px solid #333;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  color: var(--yellow);
+  font-family: var(--mono);
+}
+
+.game-end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.9);
+}
+.game-end.hidden { display: none; }
+.game-end h2 { font-family: var(--mono); color: var(--red); font-size: 1.5rem; margin-bottom: 0.5rem; }
+.game-end .stats { font-family: var(--mono); font-size: 0.9rem; color: var(--text); margin-bottom: 1rem; }
+.game-end .btn { font-size: 0.85rem; padding: 0.5rem 1.5rem; }
+
+/* ─── REPL ─── */
+
+#repl-section {
+  max-width: 900px;
+}
+
+.repl-container {
+  background: var(--bg2);
+  border: 1px solid #222;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.repl-header {
+  background: var(--bg3);
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid #222;
+}
+
+.repl-dot { width: 10px; height: 10px; border-radius: 50%; }
+.repl-dot.r { background: var(--red); }
+.repl-dot.y { background: var(--yellow); }
+.repl-dot.g { background: var(--green); }
+
+.repl-header span {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-left: 0.5rem;
+}
+
+.repl-body {
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+}
+
+.repl-editor {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.repl-editor textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  padding: 1rem;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.repl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid #222;
+  background: var(--bg3);
+}
+
+.repl-toolbar .btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 1rem;
+}
+
+.repl-toolbar .btn-run {
+  background: var(--green);
+  border-color: var(--green);
+  color: #000;
+  font-weight: 700;
+}
+.repl-toolbar .btn-run:hover { box-shadow: 0 0 15px rgba(68,255,102,0.3); }
+
+.repl-toolbar .btn-bytecode {
+  background: transparent;
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.repl-toolbar .btn-example {
+  background: transparent;
+  border-color: #444;
+  color: var(--text-dim);
+}
+
+.repl-toolbar .spacer { flex: 1; }
+
+.repl-toolbar .status {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.repl-output {
+  height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid #222;
+  padding: 0.75rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  background: #0a0a0f;
+  white-space: pre-wrap;
+  color: var(--green);
+}
+
+.repl-output .error { color: var(--red); }
+.repl-output .info { color: var(--text-dim); }
+.repl-output .bytecode { color: var(--yellow); }
+
+/* ─── SPEC ─── */
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.5rem;
+}
+
+.spec-row {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg2);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  gap: 0.5rem;
+}
+
+.spec-row .kw { color: var(--red); min-width: 120px; }
+.spec-row .arrow { color: var(--text-dim); }
+.spec-row .meaning { color: var(--green); }
+
+/* ─── ARCHITECTURE ─── */
+
+.pipeline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  padding: 1.5rem;
+  background: var(--bg2);
+  border-radius: 8px;
+  border: 1px solid #222;
+  justify-content: center;
+}
+
+.pipeline .stage {
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background: var(--bg3);
+}
+
+.pipeline .arrow { color: var(--text-dim); font-size: 1.2rem; }
+.pipeline .stage.active { border-color: var(--red); color: var(--red); }
+
+/* ─── FOOTER ─── */
+
+footer {
+  text-align: center;
+  padding: 3rem 2rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  border-top: 1px solid #151520;
+}
+
+footer a { color: var(--text); text-decoration: none; }
+footer a:hover { color: var(--red); }
+
+/* ─── SCANLINES (subtle) ─── */
+
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+}
+
+/* ─── RESPONSIVE ─── */
+
+@media (max-width: 640px) {
+  .keyword-strip { gap: 0.5rem; }
+  .keyword-strip span { font-size: 0.7rem; padding: 0.2rem 0.5rem; }
+  .spec-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════ HERO ═══════ -->
+<div class="hero">
+  <div class="logo"><span class="bro">Bro</span><span class="lang">Lang</span></div>
+  <p class="tagline">The crypto-native programming language. NFA. DYOR.</p>
+
+  <div class="keyword-strip">
+    <span><span class="kw">wagmi</span><span class="eq">=</span><span class="js">if</span></span>
+    <span><span class="kw">ngmi</span><span class="eq">=</span><span class="js">else</span></span>
+    <span><span class="kw">paper_hands</span><span class="eq">=</span><span class="js">return</span></span>
+    <span><span class="kw">rug</span><span class="eq">=</span><span class="js">throw</span></span>
+    <span><span class="kw">shill</span><span class="eq">=</span><span class="js">print</span></span>
+    <span><span class="kw">based</span><span class="eq">=</span><span class="js">function</span></span>
+  </div>
+
+  <div class="hero-actions">
+    <a href="#game-section" class="btn btn-play">Play DOOM.bro</a>
+    <a href="#repl-section" class="btn btn-repl">Try the REPL</a>
+    <a href="https://github.com/piske-alex/brolang" target="_blank" class="btn btn-gh">GitHub</a>
+  </div>
+</div>
+
+<!-- ═══════ GAME ═══════ -->
+<section id="game-section">
+  <h2 class="section-title"><span class="accent">DOOM</span>.bro</h2>
+  <p style="color: var(--text-dim); margin-bottom: 1.5rem; font-family: var(--mono); font-size: 0.9rem;">
+    Written in BroLang. Compiled to bytecode. Running on a stack VM. In your browser.
+  </p>
+
+  <div class="game-container scanlines">
+    <canvas id="game-canvas" width="80" height="48"></canvas>
+    <div class="game-overlay" id="game-overlay">
+      <div class="play-icon">&#9654;</div>
+      <h2>DOOM.BRO</h2>
+      <p>Click to play — compiled BroLang bytecode</p>
+    </div>
+    <div class="game-end hidden" id="game-end">
+      <h2 id="end-title">GAME OVER</h2>
+      <div class="stats" id="end-stats"></div>
+      <button class="btn btn-play" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+  <div class="game-controls">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move
+    &nbsp;&nbsp;
+    <kbd>Space</kbd> shoot
+    &nbsp;&nbsp;
+    <kbd>Q</kbd> quit
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    Kill 4 imps. Don't die.
+  </div>
+</section>
+
+<!-- ═══════ REPL ═══════ -->
+<section id="repl-section">
+  <h2 class="section-title"><span class="accent">Bro</span>Lang REPL</h2>
+  <p style="color: var(--text-dim); margin-bottom: 1.5rem; font-size: 0.95rem;">
+    Write BroLang, compile to bytecode, execute on the VM. All in your browser.
+  </p>
+
+  <div class="repl-container">
+    <div class="repl-header">
+      <div class="repl-dot r"></div>
+      <div class="repl-dot y"></div>
+      <div class="repl-dot g"></div>
+      <span>brolang-vm.js</span>
+    </div>
+    <div class="repl-body">
+      <div class="repl-editor">
+        <textarea id="repl-input" spellcheck="false">gm
+
+nfa Welcome to BroLang!
+nfa Try editing this code and clicking Run.
+
+hodl GREETING is "wagmi"
+ser count is 0
+
+based shout(msg, times)
+  ser i is 0
+  to_the_moon i less_than times
+    shill msg
+    i is i plus 1
+  gg
+  paper_hands times
+gg
+
+shill "gm ser"
+shill "1 + 1 = " plus (1 plus 1)
+
+ser result is shout(GREETING, 3)
+shill "Shouted " plus result plus " times"
+
+wagmi result greater_than 2
+  shill "few (that means true)"
+ngmi
+  shill "cope (that means false)"
+fr
+
+shill "gn ser"
+
+gn</textarea>
+      </div>
+      <div class="repl-toolbar">
+        <button class="btn btn-run" onclick="replRun()">Run</button>
+        <button class="btn btn-bytecode" onclick="replBytecode()">Bytecode</button>
+        <button class="btn btn-example" onclick="replLoadExample('amm')">AMM Example</button>
+        <button class="btn btn-example" onclick="replLoadExample('fib')">Fibonacci</button>
+        <span class="spacer"></span>
+        <span class="status" id="repl-status"></span>
+      </div>
+      <div class="repl-output" id="repl-output"><span class="info">Click Run to compile &amp; execute. Click Bytecode to see the opcodes.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ SPEC ═══════ -->
+<section id="spec-section">
+  <h2 class="section-title">Language <span class="accent">Spec</span></h2>
+  <div class="spec-grid">
+    <div class="spec-row"><span class="kw">gm</span><span class="arrow">&rarr;</span><span class="meaning">program start</span></div>
+    <div class="spec-row"><span class="kw">gn</span><span class="arrow">&rarr;</span><span class="meaning">program end</span></div>
+    <div class="spec-row"><span class="kw">ser</span><span class="arrow">&rarr;</span><span class="meaning">let</span></div>
+    <div class="spec-row"><span class="kw">hodl</span><span class="arrow">&rarr;</span><span class="meaning">const</span></div>
+    <div class="spec-row"><span class="kw">based</span><span class="arrow">&rarr;</span><span class="meaning">function</span></div>
+    <div class="spec-row"><span class="kw">gg</span><span class="arrow">&rarr;</span><span class="meaning">end block</span></div>
+    <div class="spec-row"><span class="kw">paper_hands</span><span class="arrow">&rarr;</span><span class="meaning">return</span></div>
+    <div class="spec-row"><span class="kw">wagmi</span><span class="arrow">&rarr;</span><span class="meaning">if</span></div>
+    <div class="spec-row"><span class="kw">ngmi</span><span class="arrow">&rarr;</span><span class="meaning">else</span></div>
+    <div class="spec-row"><span class="kw">fr</span><span class="arrow">&rarr;</span><span class="meaning">end if</span></div>
+    <div class="spec-row"><span class="kw">to_the_moon</span><span class="arrow">&rarr;</span><span class="meaning">while</span></div>
+    <div class="spec-row"><span class="kw">touch_grass</span><span class="arrow">&rarr;</span><span class="meaning">break</span></div>
+    <div class="spec-row"><span class="kw">shill</span><span class="arrow">&rarr;</span><span class="meaning">print</span></div>
+    <div class="spec-row"><span class="kw">rug</span><span class="arrow">&rarr;</span><span class="meaning">throw</span></div>
+    <div class="spec-row"><span class="kw">ape_in</span><span class="arrow">&rarr;</span><span class="meaning">array.push</span></div>
+    <div class="spec-row"><span class="kw">few</span><span class="arrow">&rarr;</span><span class="meaning">true</span></div>
+    <div class="spec-row"><span class="kw">cope</span><span class="arrow">&rarr;</span><span class="meaning">false</span></div>
+    <div class="spec-row"><span class="kw">probably_nothing</span><span class="arrow">&rarr;</span><span class="meaning">null</span></div>
+    <div class="spec-row"><span class="kw">nfa</span><span class="arrow">&rarr;</span><span class="meaning">// comment</span></div>
+    <div class="spec-row"><span class="kw">plus / minus</span><span class="arrow">&rarr;</span><span class="meaning">+ / -</span></div>
+    <div class="spec-row"><span class="kw">times / divided_by</span><span class="arrow">&rarr;</span><span class="meaning">* / /</span></div>
+    <div class="spec-row"><span class="kw">equals</span><span class="arrow">&rarr;</span><span class="meaning">===</span></div>
+    <div class="spec-row"><span class="kw">greater_than</span><span class="arrow">&rarr;</span><span class="meaning">&gt;</span></div>
+    <div class="spec-row"><span class="kw">less_than</span><span class="arrow">&rarr;</span><span class="meaning">&lt;</span></div>
+  </div>
+</section>
+
+<!-- ═══════ ARCHITECTURE ═══════ -->
+<section>
+  <h2 class="section-title">Compiler <span class="accent">Pipeline</span></h2>
+  <div class="pipeline">
+    <span class="stage active">.bro source</span>
+    <span class="arrow">&rarr;</span>
+    <span class="stage">Lexer</span>
+    <span class="arrow">&rarr;</span>
+    <span class="stage">Tokens</span>
+    <span class="arrow">&rarr;</span>
+    <span class="stage">Parser</span>
+    <span class="arrow">&rarr;</span>
+    <span class="stage">AST</span>
+    <span class="arrow">&rarr;</span>
+    <span class="stage">Compiler</span>
+    <span class="arrow">&rarr;</span>
+    <span class="stage active">Bytecode</span>
+    <span class="arrow">&rarr;</span>
+    <span class="stage">Stack VM</span>
+  </div>
+  <p style="color: var(--text-dim); margin-top: 1rem; font-size: 0.9rem;">
+    No transpilation. No eval(). Source is lexed, parsed into an AST, compiled to real bytecodes
+    (CONST, ADD, MUL, JMP_FALSE, CALL, RETURN), and executed on a stack-based virtual machine.
+    Same architecture as CPython. More vibes.
+  </p>
+</section>
+
+<!-- ═══════ FOOTER ═══════ -->
+<footer>
+  <p>
+    Built by <a href="https://github.com/piske-alex">Alex</a>
+    &nbsp;|&nbsp;
+    <a href="https://github.com/piske-alex/brolang">GitHub</a>
+    &nbsp;|&nbsp;
+    Pair-programmed with <a href="https://claude.ai/code">Claude Code</a>
+  </p>
+  <p style="margin-top: 0.5rem;">wagmi.</p>
+</footer>
+
+<!-- ═════════════════════════════════════════════════════════ -->
+<!--  BROLANG COMPILER + VM (BROWSER EDITION)                 -->
+<!-- ═════════════════════════════════════════════════════════ -->
+<script>
+// ── Token types ──
+const T={NUMBER:'NUMBER',STRING:'STRING',IDENT:'IDENT',GM:'GM',GN:'GN',SER:'SER',HODL:'HODL',IS:'IS',BASED:'BASED',GG:'GG',PAPER_HANDS:'PAPER_HANDS',WAGMI:'WAGMI',NGMI:'NGMI',FR:'FR',TO_THE_MOON:'TO_THE_MOON',TOUCH_GRASS:'TOUCH_GRASS',SHILL:'SHILL',RUG:'RUG',FEW:'FEW',COPE:'COPE',PROBABLY_NOTHING:'PROBABLY_NOTHING',APE_IN:'APE_IN',NFA:'NFA',PLUS:'PLUS',MINUS:'MINUS',TIMES:'TIMES',DIVIDED_BY:'DIVIDED_BY',MOD:'MOD',EQUALS:'EQUALS',GREATER_THAN:'GREATER_THAN',LESS_THAN:'LESS_THAN',GTE:'GTE',LTE:'LTE',AND:'AND',OR:'OR',NOT:'NOT',LPAREN:'LPAREN',RPAREN:'RPAREN',LBRACKET:'LBRACKET',RBRACKET:'RBRACKET',COMMA:'COMMA',DOT:'DOT',NEWLINE:'NEWLINE',EOF:'EOF'};
+
+const KW={'gm':T.GM,'gn':T.GN,'ser':T.SER,'hodl':T.HODL,'is':T.IS,'based':T.BASED,'gg':T.GG,'paper_hands':T.PAPER_HANDS,'wagmi':T.WAGMI,'ngmi':T.NGMI,'fr':T.FR,'to_the_moon':T.TO_THE_MOON,'touch_grass':T.TOUCH_GRASS,'shill':T.SHILL,'rug':T.RUG,'few':T.FEW,'cope':T.COPE,'probably_nothing':T.PROBABLY_NOTHING,'ape_in':T.APE_IN,'nfa':T.NFA,'plus':T.PLUS,'minus':T.MINUS,'times':T.TIMES,'divided_by':T.DIVIDED_BY,'mod':T.MOD,'equals':T.EQUALS,'greater_than':T.GREATER_THAN,'less_than':T.LESS_THAN,'gte':T.GTE,'lte':T.LTE,'and':T.AND,'or':T.OR,'not':T.NOT};
+
+class Tok{constructor(t,v,l){this.type=t;this.value=v;this.line=l;}}
+
+function lex(src){
+  const tokens=[];const lines=src.split('\n');
+  for(let ln=0;ln<lines.length;ln++){
+    let line=lines[ln],pos=0;
+    while(pos<line.length&&(line[pos]===' '||line[pos]==='\t'))pos++;
+    if(pos>=line.length){tokens.push(new Tok(T.NEWLINE,'\\n',ln+1));continue;}
+    if(line.substring(pos).startsWith('nfa ')||line.substring(pos)==='nfa'){
+      tokens.push(new Tok(T.NFA,line.substring(pos),ln+1));
+      tokens.push(new Tok(T.NEWLINE,'\\n',ln+1));continue;
+    }
+    while(pos<line.length){
+      if(line[pos]===' '||line[pos]==='\t'){pos++;continue;}
+      if(line[pos]==='"'){let s='';pos++;while(pos<line.length&&line[pos]!=='"'){s+=line[pos];pos++;}pos++;tokens.push(new Tok(T.STRING,s,ln+1));continue;}
+      if(/[0-9]/.test(line[pos])||(line[pos]==='-'&&pos+1<line.length&&/[0-9]/.test(line[pos+1]))){
+        let n='';if(line[pos]==='-'){n+='-';pos++;}while(pos<line.length&&/[0-9.]/.test(line[pos])){n+=line[pos];pos++;}
+        tokens.push(new Tok(T.NUMBER,parseFloat(n),ln+1));continue;
+      }
+      if(line[pos]==='('){tokens.push(new Tok(T.LPAREN,'(',ln+1));pos++;continue;}
+      if(line[pos]===')'){tokens.push(new Tok(T.RPAREN,')',ln+1));pos++;continue;}
+      if(line[pos]==='['){tokens.push(new Tok(T.LBRACKET,'[',ln+1));pos++;continue;}
+      if(line[pos]===']'){tokens.push(new Tok(T.RBRACKET,']',ln+1));pos++;continue;}
+      if(line[pos]===','){tokens.push(new Tok(T.COMMA,',',ln+1));pos++;continue;}
+      if(line[pos]==='.'){tokens.push(new Tok(T.DOT,'.',ln+1));pos++;continue;}
+      if(/[a-zA-Z_]/.test(line[pos])){
+        let w='';while(pos<line.length&&/[a-zA-Z0-9_]/.test(line[pos])){w+=line[pos];pos++;}
+        tokens.push(new Tok(KW[w]||T.IDENT,w,ln+1));continue;
+      }
+      pos++;
+    }
+    tokens.push(new Tok(T.NEWLINE,'\\n',ln+1));
+  }
+  tokens.push(new Tok(T.EOF,null,lines.length));return tokens;
+}
+
+// ── AST node types ──
+const N={PROGRAM:'Program',NUM_LIT:'NumLit',STR_LIT:'StrLit',BOOL_LIT:'BoolLit',NULL_LIT:'NullLit',IDENT:'Ident',BINOP:'BinOp',UNARYOP:'UnaryOp',CALL:'Call',MEMBER:'Member',ARRAY_LIT:'ArrayLit',VAR_DECL:'VarDecl',CONST_DECL:'ConstDecl',ASSIGN:'Assign',FUNC_DECL:'FuncDecl',RETURN:'Return',IF:'If',WHILE:'While',BREAK:'Break',PRINT:'Print',THROW:'Throw',PUSH:'Push',EXPR_STMT:'ExprStmt'};
+
+// ── Parser ──
+class Parser{
+  constructor(tokens){this.tokens=tokens.filter(t=>t.type!==T.NFA);this.pos=0;}
+  peek(){return this.tokens[this.pos];}
+  advance(){return this.tokens[this.pos++];}
+  expect(type){const t=this.advance();if(t.type!==type)throw new Error(`Line ${t.line}: expected ${type}, got ${t.type}`);return t;}
+  skipNL(){while(this.peek().type===T.NEWLINE)this.advance();}
+  match(type){if(this.peek().type===type){this.advance();return true;}return false;}
+
+  parse(){
+    this.skipNL();this.expect(T.GM);this.skipNL();
+    const body=[];
+    while(this.peek().type!==T.GN&&this.peek().type!==T.EOF){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
+    if(this.peek().type===T.GN)this.advance();
+    return{type:N.PROGRAM,body};
+  }
+
+  parseStmt(){
+    this.skipNL();const t=this.peek();
+    switch(t.type){
+      case T.SER:return this.parseVar();case T.HODL:return this.parseConst();
+      case T.BASED:return this.parseFunc();case T.PAPER_HANDS:return this.parseRet();
+      case T.WAGMI:return this.parseIf();case T.TO_THE_MOON:return this.parseWhile();
+      case T.TOUCH_GRASS:this.advance();return{type:N.BREAK};
+      case T.SHILL:return this.parsePrint();case T.RUG:return this.parseThrow();
+      case T.APE_IN:return this.parsePush();case T.IDENT:return this.parseIdentStmt();
+      default:this.advance();return null;
+    }
+  }
+
+  parseVar(){this.expect(T.SER);const n=this.expect(T.IDENT).value;this.expect(T.IS);return{type:N.VAR_DECL,name:n,value:this.parseExpr()};}
+  parseConst(){this.expect(T.HODL);const n=this.expect(T.IDENT).value;this.expect(T.IS);return{type:N.CONST_DECL,name:n,value:this.parseExpr()};}
+  parseFunc(){
+    this.expect(T.BASED);const name=this.expect(T.IDENT).value;this.expect(T.LPAREN);
+    const params=[];if(this.peek().type!==T.RPAREN){params.push(this.expect(T.IDENT).value);while(this.match(T.COMMA))params.push(this.expect(T.IDENT).value);}
+    this.expect(T.RPAREN);this.skipNL();
+    const body=[];while(this.peek().type!==T.GG){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
+    this.expect(T.GG);return{type:N.FUNC_DECL,name,params,body};
+  }
+  parseRet(){this.expect(T.PAPER_HANDS);return{type:N.RETURN,value:this.parseExpr()};}
+  parseIf(){
+    this.expect(T.WAGMI);const cond=this.parseExpr();this.skipNL();
+    const cons=[];while(this.peek().type!==T.NGMI&&this.peek().type!==T.FR){const s=this.parseStmt();if(s)cons.push(s);this.skipNL();}
+    let alt=[];if(this.match(T.NGMI)){this.skipNL();while(this.peek().type!==T.FR){const s=this.parseStmt();if(s)alt.push(s);this.skipNL();}}
+    this.expect(T.FR);return{type:N.IF,condition:cond,consequent:cons,alternate:alt};
+  }
+  parseWhile(){
+    this.expect(T.TO_THE_MOON);const cond=this.parseExpr();this.skipNL();
+    const body=[];while(this.peek().type!==T.GG){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
+    this.expect(T.GG);return{type:N.WHILE,condition:cond,body};
+  }
+  parsePrint(){this.expect(T.SHILL);return{type:N.PRINT,value:this.parseExpr()};}
+  parseThrow(){this.expect(T.RUG);return{type:N.THROW,value:this.parseExpr()};}
+  parsePush(){this.expect(T.APE_IN);const a=this.expect(T.IDENT).value;return{type:N.PUSH,array:a,value:this.parseExpr()};}
+  parseIdentStmt(){
+    const n=this.expect(T.IDENT).value;
+    if(this.peek().type===T.IS){this.advance();return{type:N.ASSIGN,name:n,value:this.parseExpr()};}
+    this.pos--;const expr=this.parseExpr();return{type:N.EXPR_STMT,expr};
+  }
+
+  // Expression precedence climbing
+  parseExpr(){return this.parseOr();}
+  parseOr(){let l=this.parseAnd();while(this.peek().type===T.OR){this.advance();l={type:N.BINOP,op:'||',left:l,right:this.parseAnd()};}return l;}
+  parseAnd(){let l=this.parseEq();while(this.peek().type===T.AND){this.advance();l={type:N.BINOP,op:'&&',left:l,right:this.parseEq()};}return l;}
+  parseEq(){let l=this.parseCmp();while(this.peek().type===T.EQUALS){this.advance();l={type:N.BINOP,op:'==',left:l,right:this.parseCmp()};}return l;}
+  parseCmp(){
+    let l=this.parseAdd();const ops={[T.GREATER_THAN]:'>',  [T.LESS_THAN]:'<',[T.GTE]:'>=',[T.LTE]:'<='};
+    while(ops[this.peek().type]){const op=ops[this.advance().type];l={type:N.BINOP,op,left:l,right:this.parseAdd()};}return l;
+  }
+  parseAdd(){
+    let l=this.parseMul();while(this.peek().type===T.PLUS||this.peek().type===T.MINUS){
+      const op=this.advance().type===T.PLUS?'+':'-';l={type:N.BINOP,op,left:l,right:this.parseMul()};}return l;
+  }
+  parseMul(){
+    let l=this.parseUnary();while(this.peek().type===T.TIMES||this.peek().type===T.DIVIDED_BY||this.peek().type===T.MOD){
+      const t=this.advance().type;const op=t===T.TIMES?'*':t===T.DIVIDED_BY?'/':'%';l={type:N.BINOP,op,left:l,right:this.parseUnary()};}return l;
+  }
+  parseUnary(){
+    if(this.peek().type===T.NOT){this.advance();return{type:N.UNARYOP,op:'!',operand:this.parseUnary()};}
+    if(this.peek().type===T.MINUS){this.advance();return{type:N.UNARYOP,op:'-',operand:this.parseUnary()};}
+    return this.parsePostfix();
+  }
+  parsePostfix(){
+    let n=this.parsePrimary();
+    while(true){
+      if(this.peek().type===T.LPAREN){this.advance();const args=[];if(this.peek().type!==T.RPAREN){args.push(this.parseExpr());while(this.match(T.COMMA))args.push(this.parseExpr());}this.expect(T.RPAREN);n={type:N.CALL,callee:n,args};}
+      else if(this.peek().type===T.DOT){this.advance();n={type:N.MEMBER,object:n,property:this.expect(T.IDENT).value};}
+      else break;
+    }return n;
+  }
+  parsePrimary(){
+    const t=this.peek();
+    if(t.type===T.NUMBER){this.advance();return{type:N.NUM_LIT,value:t.value};}
+    if(t.type===T.STRING){this.advance();return{type:N.STR_LIT,value:t.value};}
+    if(t.type===T.FEW){this.advance();return{type:N.BOOL_LIT,value:true};}
+    if(t.type===T.COPE){this.advance();return{type:N.BOOL_LIT,value:false};}
+    if(t.type===T.PROBABLY_NOTHING){this.advance();return{type:N.NULL_LIT};}
+    if(t.type===T.IDENT){this.advance();return{type:N.IDENT,name:t.value};}
+    if(t.type===T.LPAREN){this.advance();const e=this.parseExpr();this.expect(T.RPAREN);return e;}
+    if(t.type===T.LBRACKET){this.advance();const els=[];if(this.peek().type!==T.RBRACKET){els.push(this.parseExpr());while(this.match(T.COMMA))els.push(this.parseExpr());}this.expect(T.RBRACKET);return{type:N.ARRAY_LIT,elements:els};}
+    throw new Error(`Line ${t.line}: unexpected ${t.type} (${t.value})`);
+  }
+}
+
+// ── Opcodes ──
+const Op={CONST:1,POP:2,DUP:3,ADD:0x10,SUB:0x11,MUL:0x12,DIV:0x13,MOD:0x14,NEG:0x15,EQ:0x20,GT:0x21,LT:0x22,GTE:0x23,LTE:0x24,NOT:0x28,AND:0x29,OR:0x2A,LOAD:0x40,STORE:0x41,LOAD_LOCAL:0x42,STORE_LOCAL:0x43,JMP:0x50,JMP_FALSE:0x51,JMP_TRUE:0x52,CALL:0x60,RETURN:0x61,CALL_BUILTIN:0x62,PRINT:0x70,ARRAY:0x80,MEMBER:0x82,PUSH_ARR:0x83,HALT:0xFF};
+const OP_NAMES={};for(const[n,c]of Object.entries(Op))OP_NAMES[c]=n;
+
+// ── Compiler ──
+class Chunk{
+  constructor(name){this.name=name;this.code=[];this.constants=[];}
+  emit(op){this.code.push(op);return this.code.length-1;}
+  emitConstant(v){this.emit(Op.CONST);this.emit(this.addConstant(v));}
+  addConstant(v){for(let i=0;i<this.constants.length;i++)if(this.constants[i]===v)return i;this.constants.push(v);return this.constants.length-1;}
+}
+
+class Compiler{
+  constructor(){this.functions=new Map();this.mainChunk=new Chunk('<main>');this.currentChunk=this.mainChunk;this.locals=[];}
+  compile(ast){
+    for(const n of ast.body)if(n.type===N.FUNC_DECL)this.compileFunc(n);
+    this.currentChunk=this.mainChunk;
+    for(const n of ast.body)if(n.type!==N.FUNC_DECL)this.compileNode(n);
+    this.currentChunk.emit(Op.HALT);
+    return{main:this.mainChunk,functions:this.functions};
+  }
+  compileFunc(node){
+    const chunk=new Chunk(node.name);const prev=this.currentChunk;const prevL=this.locals;
+    this.currentChunk=chunk;this.locals=node.params.map(p=>({name:p}));
+    for(const s of node.body)this.compileNode(s);
+    if(chunk.code[chunk.code.length-1]!==Op.RETURN){chunk.emitConstant(null);chunk.emit(Op.RETURN);}
+    this.functions.set(node.name,{chunk,params:node.params});
+    this.currentChunk=prev;this.locals=prevL;
+  }
+  compileNode(n){
+    const c=this.currentChunk;
+    switch(n.type){
+      case N.VAR_DECL:case N.CONST_DECL:this.compileExpr(n.value);c.emit(Op.STORE);c.emit(c.addConstant(n.name));break;
+      case N.ASSIGN:this.compileExpr(n.value);c.emit(Op.STORE);c.emit(c.addConstant(n.name));break;
+      case N.PRINT:this.compileExpr(n.value);c.emit(Op.PRINT);break;
+      case N.RETURN:this.compileExpr(n.value);c.emit(Op.RETURN);break;
+      case N.IF:{
+        this.compileExpr(n.condition);const jf=c.code.length;c.emit(Op.JMP_FALSE);c.emit(0);
+        for(const s of n.consequent)this.compileNode(s);
+        if(n.alternate.length){const je=c.code.length;c.emit(Op.JMP);c.emit(0);c.code[jf+1]=c.code.length;for(const s of n.alternate)this.compileNode(s);c.code[je+1]=c.code.length;}
+        else c.code[jf+1]=c.code.length;
+        break;
+      }
+      case N.WHILE:{
+        const loop=c.code.length;this.compileExpr(n.condition);const jf=c.code.length;c.emit(Op.JMP_FALSE);c.emit(0);
+        for(const s of n.body)this.compileNode(s);
+        c.emit(Op.JMP);c.emit(loop);c.code[jf+1]=c.code.length;break;
+      }
+      case N.THROW:this.compileExpr(n.value);c.emit(Op.CALL_BUILTIN);c.emit(c.addConstant('__throw'));break;
+      case N.PUSH:c.emit(Op.LOAD);c.emit(c.addConstant(n.array));this.compileExpr(n.value);c.emit(Op.PUSH_ARR);break;
+      case N.EXPR_STMT:this.compileExpr(n.expr);c.emit(Op.POP);break;
+      case N.BREAK:c.emit(Op.JMP);c.emit(0);break;
+    }
+  }
+  compileExpr(n){
+    const c=this.currentChunk;
+    switch(n.type){
+      case N.NUM_LIT:case N.STR_LIT:case N.BOOL_LIT:c.emitConstant(n.value);break;
+      case N.NULL_LIT:c.emitConstant(null);break;
+      case N.IDENT:{
+        const li=this.locals.findIndex(l=>l.name===n.name);
+        if(li!==-1){c.emit(Op.LOAD_LOCAL);c.emit(li);}else{c.emit(Op.LOAD);c.emit(c.addConstant(n.name));}break;
+      }
+      case N.BINOP:{
+        this.compileExpr(n.left);this.compileExpr(n.right);
+        const m={'+':Op.ADD,'-':Op.SUB,'*':Op.MUL,'/':Op.DIV,'%':Op.MOD,'==':Op.EQ,'>':Op.GT,'<':Op.LT,'>=':Op.GTE,'<=':Op.LTE,'&&':Op.AND,'||':Op.OR};
+        c.emit(m[n.op]);break;
+      }
+      case N.UNARYOP:this.compileExpr(n.operand);c.emit(n.op==='!'?Op.NOT:Op.NEG);break;
+      case N.CALL:{
+        if(n.callee.type===N.MEMBER){
+          for(const a of n.args)this.compileExpr(a);
+          const bn=this.getMemberPath(n.callee);c.emit(Op.CALL_BUILTIN);c.emit(c.addConstant(bn));c.emit(n.args.length);break;
+        }
+        for(const a of n.args)this.compileExpr(a);c.emitConstant(n.callee.name);c.emit(Op.CALL);c.emit(n.args.length);break;
+      }
+      case N.MEMBER:this.compileExpr(n.object);c.emitConstant(n.property);c.emit(Op.MEMBER);break;
+      case N.ARRAY_LIT:for(const e of n.elements)this.compileExpr(e);c.emit(Op.ARRAY);c.emit(n.elements.length);break;
+    }
+  }
+  getMemberPath(n){return n.type===N.MEMBER?`${n.object.type===N.MEMBER?this.getMemberPath(n.object):n.object.name}.${n.property}`:n.name;}
+}
+
+// ── Disassembler (for REPL bytecode view) ──
+function disassemble(program){
+  let out='';
+  for(const[name,func]of program.functions){
+    out+=`\n── based ${name}(${func.params.join(', ')}) ──\n`;
+    out+=disChunk(func.chunk);
+  }
+  out+='\n── <main> ──\n';out+=disChunk(program.main);return out;
+}
+function disChunk(chunk){
+  let out=`  Constants: [${chunk.constants.map((c,i)=>`${i}:${JSON.stringify(c)}`).join(', ')}]\n  Code:\n`;
+  let i=0;
+  while(i<chunk.code.length){
+    const op=chunk.code[i];const name=OP_NAMES[op]||`0x${op.toString(16)}`;
+    let line=`    ${String(i).padStart(4,'0')}  ${name.padEnd(14)}`;
+    if([Op.CONST,Op.LOAD,Op.STORE,Op.LOAD_LOCAL,Op.STORE_LOCAL].includes(op)){
+      const o=chunk.code[i+1];line+=` ${o}`;if(![Op.LOAD_LOCAL,Op.STORE_LOCAL].includes(op))line+=` (${JSON.stringify(chunk.constants[o])})`;i+=2;
+    }else if([Op.JMP,Op.JMP_FALSE,Op.JMP_TRUE].includes(op)){line+=` -> ${chunk.code[i+1]}`;i+=2;}
+    else if(op===Op.CALL||op===Op.ARRAY){line+=` (${chunk.code[i+1]} args)`;i+=2;}
+    else if(op===Op.CALL_BUILTIN){const ni=chunk.code[i+1];const bn=chunk.constants[ni];if(bn==='__throw'){line+=` ${bn}`;i+=2;}else{line+=` ${bn} (${chunk.code[i+2]} args)`;i+=3;}}
+    else i++;
+    out+=line+'\n';
+  }
+  return out;
+}
+
+// ══════════════════════════════════════════
+//  VM — BROWSER EDITION (async, canvas rendering)
+// ══════════════════════════════════════════
+
+class CallFrame{constructor(chunk,locals){this.chunk=chunk;this.ip=0;this.locals=locals;}}
+
+class BroVM{
+  constructor(program,opts={}){
+    this.main=program.main;this.functions=program.functions;
+    this.stack=[];this.globals=new Map();this.callStack=[];
+    this.frame=new CallFrame(this.main,[]);
+    this.output=[];this.onPrint=opts.onPrint||(s=>console.log(s));
+    // Graphics
+    this.canvas=opts.canvas||null;this.ctx=this.canvas?this.canvas.getContext('2d'):null;
+    this.imgData=null;this.gfxW=0;this.gfxH=0;
+    // Game state
+    this.keyQueue=[];this.enemies=[];this.zbuf=null;
+    this.stopped=false;
+    this.maxSteps=opts.maxSteps||2_000_000; // for REPL mode
+    this.gameMode=false;
+  }
+
+  stop(){this.stopped=true;}
+
+  async run(){
+    let steps=0;const isGame=this.gameMode;const limit=isGame?Infinity:this.maxSteps;
+    while(!this.stopped&&steps++<limit){
+      const f=this.frame;const chunk=f.chunk;
+      if(f.ip>=chunk.code.length){if(this.callStack.length){this.frame=this.callStack.pop();this.stack.push(null);continue;}break;}
+      const op=chunk.code[f.ip++];
+      switch(op){
+        case Op.CONST:this.stack.push(chunk.constants[chunk.code[f.ip++]]);break;
+        case Op.POP:this.stack.pop();break;
+        case Op.DUP:this.stack.push(this.stack[this.stack.length-1]);break;
+        case Op.ADD:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a+b);break;}
+        case Op.SUB:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a-b);break;}
+        case Op.MUL:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a*b);break;}
+        case Op.DIV:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a/b);break;}
+        case Op.MOD:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a%b);break;}
+        case Op.NEG:this.stack.push(-this.stack.pop());break;
+        case Op.EQ:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a===b);break;}
+        case Op.GT:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a>b);break;}
+        case Op.LT:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a<b);break;}
+        case Op.GTE:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a>=b);break;}
+        case Op.LTE:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a<=b);break;}
+        case Op.NOT:this.stack.push(!this.stack.pop());break;
+        case Op.AND:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a&&b);break;}
+        case Op.OR:{const b=this.stack.pop(),a=this.stack.pop();this.stack.push(a||b);break;}
+        case Op.LOAD:{const n=chunk.constants[chunk.code[f.ip++]];if(!this.globals.has(n))throw new Error(`rugged: undefined '${n}'`);this.stack.push(this.globals.get(n));break;}
+        case Op.STORE:{const n=chunk.constants[chunk.code[f.ip++]];this.globals.set(n,this.stack.pop());break;}
+        case Op.LOAD_LOCAL:this.stack.push(f.locals[chunk.code[f.ip++]]);break;
+        case Op.STORE_LOCAL:f.locals[chunk.code[f.ip++]]=this.stack.pop();break;
+        case Op.JMP:f.ip=chunk.code[f.ip];break;
+        case Op.JMP_FALSE:{const t=chunk.code[f.ip++];if(!this.stack.pop())f.ip=t;break;}
+        case Op.JMP_TRUE:{const t=chunk.code[f.ip++];if(this.stack.pop())f.ip=t;break;}
+        case Op.CALL:{
+          const argc=chunk.code[f.ip++];const fn=this.stack.pop();
+          const func=this.functions.get(fn);
+          if(!func){
+            const args=[];for(let i=0;i<argc;i++)args.unshift(this.stack.pop());
+            const r=await this.callNative(fn,args);this.stack.push(r);break;
+          }
+          const args=[];for(let i=0;i<argc;i++)args.unshift(this.stack.pop());
+          this.callStack.push(this.frame);this.frame=new CallFrame(func.chunk,args);break;
+        }
+        case Op.CALL_BUILTIN:{
+          const ni=chunk.code[f.ip++];const bn=chunk.constants[ni];
+          if(bn==='__throw')throw new Error(String(this.stack.pop()));
+          const argc=chunk.code[f.ip++];const args=[];for(let i=0;i<argc;i++)args.unshift(this.stack.pop());
+          this.stack.push(this.callBuiltin(bn,args));break;
+        }
+        case Op.RETURN:{
+          const rv=this.stack.pop();if(!this.callStack.length)return this.output;
+          this.frame=this.callStack.pop();this.stack.push(rv);break;
+        }
+        case Op.PRINT:{
+          const v=this.stack.pop();const s=this.fmt(v);this.output.push(s);this.onPrint(s);break;
+        }
+        case Op.ARRAY:{const c=chunk.code[f.ip++];const a=[];for(let i=0;i<c;i++)a.unshift(this.stack.pop());this.stack.push(a);break;}
+        case Op.PUSH_ARR:{const v=this.stack.pop();this.stack.pop().push(v);break;}
+        case Op.MEMBER:{const p=this.stack.pop();const o=this.stack.pop();this.stack.push(o?.[p]);break;}
+        case Op.HALT:return this.output;
+      }
+    }
+    if(steps>=limit&&!isGame)throw new Error('rugged: step limit exceeded. touch_grass ser.');
+    return this.output;
+  }
+
+  callBuiltin(name,args){
+    switch(name){
+      case 'Math.floor':return Math.floor(args[0]);case 'Math.ceil':return Math.ceil(args[0]);
+      case 'Math.sqrt':return Math.sqrt(args[0]);case 'Math.abs':return Math.abs(args[0]);
+      case 'Math.min':return Math.min(...args);case 'Math.max':return Math.max(...args);
+      case 'Math.pow':return Math.pow(args[0],args[1]);case 'Math.round':return Math.round(args[0]);
+      case 'Math.sin':return Math.sin(args[0]);case 'Math.cos':return Math.cos(args[0]);
+      case 'Math.tan':return Math.tan(args[0]);case 'Math.atan2':return Math.atan2(args[0],args[1]);
+      case 'Math.log':return Math.log(args[0]);
+      default:{
+        const m=name.split('.').pop();
+        if(m==='toFixed')return args[0].toFixed(args[1]||0);
+        if(m==='toString')return String(args[0]);
+        throw new Error(`rugged: unknown builtin '${name}'`);
+      }
+    }
+  }
+
+  async callNative(name,args){
+    switch(name){
+      case 'char_at':return typeof args[0]==='string'?(args[0][args[1]]||' '):' ';
+      case 'str_len':return typeof args[0]==='string'?args[0].length:0;
+      // Graphics
+      case 'hires':
+        this.gfxW=args[0]|0;this.gfxH=args[1]|0;
+        if(this.canvas){this.canvas.width=this.gfxW;this.canvas.height=this.gfxH;}
+        if(this.ctx)this.imgData=this.ctx.createImageData(this.gfxW,this.gfxH);
+        return null;
+      case 'pixel':{
+        if(!this.imgData)return null;
+        const[x,y,r,g,b]=args;const xi=x|0,yi=y|0;
+        if(xi>=0&&xi<this.gfxW&&yi>=0&&yi<this.gfxH){const i=(yi*this.gfxW+xi)*4;const d=this.imgData.data;d[i]=r|0;d[i+1]=g|0;d[i+2]=b|0;d[i+3]=255;}
+        return null;
+      }
+      case 'vline':{
+        if(!this.imgData)return null;
+        const[x,y1,y2,r,g,b]=args;const xi=x|0,ri=r|0,gi=g|0,bi=b|0,w=this.gfxW,h=this.gfxH;
+        if(xi<0||xi>=w)return null;const s=Math.max(0,y1|0),e=Math.min(h,y2|0);const d=this.imgData.data;
+        for(let y=s;y<e;y++){const i=(y*w+xi)*4;d[i]=ri;d[i+1]=gi;d[i+2]=bi;d[i+3]=255;}
+        return null;
+      }
+      case 'rect':{
+        if(!this.imgData)return null;
+        const[rx,ry,rw,rh,r,g,b]=args;const ri=r|0,gi=g|0,bi=b|0,sw=this.gfxW,sh=this.gfxH;
+        const x0=Math.max(0,rx|0),y0=Math.max(0,ry|0),x1=Math.min(sw,(rx+rw)|0),y1=Math.min(sh,(ry+rh)|0);
+        const d=this.imgData.data;
+        for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*sw+x)*4;d[i]=ri;d[i+1]=gi;d[i+2]=bi;d[i+3]=255;}
+        return null;
+      }
+      case 'hflush':{
+        if(this.ctx&&this.imgData){this.ctx.putImageData(this.imgData,0,0);}
+        // Yield to browser for repaint
+        await new Promise(r=>requestAnimationFrame(r));
+        return null;
+      }
+      case 'clear_screen':{
+        if(this.ctx){this.ctx.fillStyle='#000';this.ctx.fillRect(0,0,this.canvas.width,this.canvas.height);}
+        if(this.imgData)this.imgData.data.fill(0);
+        return null;
+      }
+      // Game input
+      case 'game_init':this.gameMode=true;return null;
+      case 'key':{
+        if(!this.keyQueue.length)return '';
+        return this.keyQueue.shift();
+      }
+      case 'key_flush':this.keyQueue.length=0;return null;
+      case 'now':return Date.now();
+      case 'sleep':await new Promise(r=>setTimeout(r,args[0]|0));return null;
+      // Depth buffer
+      case 'zbuf_init':this.zbuf=new Float64Array(args[0]|0);return null;
+      case 'zbuf_set':if(this.zbuf)this.zbuf[args[0]|0]=args[1];return null;
+      case 'zbuf_get':return this.zbuf?this.zbuf[args[0]|0]||999:999;
+      // Enemies
+      case 'enemies_init':this.enemies=[];return null;
+      case 'enemy_add':this.enemies.push({x:args[0],y:args[1],hp:args[2],ht:0});return this.enemies.length-1;
+      case 'enemy_count':return this.enemies.length;
+      case 'enemy_x':return this.enemies[args[0]|0].x;
+      case 'enemy_y':return this.enemies[args[0]|0].y;
+      case 'enemy_hp':return this.enemies[args[0]|0].hp;
+      case 'enemy_alive':return this.enemies[args[0]|0].hp>0?1:0;
+      case 'enemy_set_pos':{const e=this.enemies[args[0]|0];e.x=args[1];e.y=args[2];return null;}
+      case 'enemy_hurt':{const e=this.enemies[args[0]|0];if(e.hp>0){e.hp=Math.max(0,e.hp-(args[1]|0));e.ht=4;}return e.hp;}
+      case 'enemy_flash':{const e=this.enemies[args[0]|0];if(e.ht>0){e.ht--;return 1;}return 0;}
+      // Screen/draw (legacy char mode — ignore in browser)
+      case 'screen':case 'draw':case 'flush':return null;
+      default:throw new Error(`rugged: unknown native '${name}'`);
+    }
+  }
+
+  fmt(v){if(v===null||v===undefined)return'probably_nothing';if(Array.isArray(v))return'['+v.map(x=>this.fmt(x)).join(', ')+']';return String(v);}
+}
+
+// ══════════════════════════════════════════
+//  REPL
+// ══════════════════════════════════════════
+
+const replExamples={
+amm:`gm
+
+nfa Uniswap V2 Constant Product AMM
+
+hodl FEE_BPS is 30
+hodl BPS is 10000
+ser reserve_a is 1000
+ser reserve_b is 150000
+
+based get_amount_out(amount_in, reserve_in, reserve_out)
+  ser amount_with_fee is amount_in times (BPS minus FEE_BPS)
+  ser numerator is amount_with_fee times reserve_out
+  ser denominator is (reserve_in times BPS) plus amount_with_fee
+  paper_hands numerator divided_by denominator
+gg
+
+based swap_a_for_b(amount_in)
+  ser out is get_amount_out(amount_in, reserve_a, reserve_b)
+  reserve_a is reserve_a plus amount_in
+  reserve_b is reserve_b minus out
+  shill "Swapped " plus amount_in plus " A -> " plus Math.floor(out) plus " B"
+  shill "  Price: " plus Math.floor(reserve_b divided_by reserve_a) plus " B/A"
+  shill "  k = " plus Math.floor(reserve_a times reserve_b)
+  paper_hands out
+gg
+
+shill "=== BroLang DEX ==="
+shill "Initial: " plus reserve_a plus " A / " plus reserve_b plus " B"
+shill "Price: " plus (reserve_b divided_by reserve_a) plus " B/A"
+shill ""
+
+swap_a_for_b(100)
+shill ""
+swap_a_for_b(50)
+shill ""
+swap_a_for_b(200)
+
+shill ""
+shill "wagmi."
+
+gn`,
+
+fib:`gm
+
+nfa Fibonacci sequence in BroLang
+
+based fib(n)
+  wagmi n lte 1
+    paper_hands n
+  fr
+  paper_hands fib(n minus 1) plus fib(n minus 2)
+gg
+
+shill "=== Fibonacci ==="
+
+ser i is 0
+to_the_moon i less_than 15
+  shill "fib(" plus i plus ") = " plus fib(i)
+  i is i plus 1
+gg
+
+shill ""
+shill "wagmi."
+
+gn`
+};
+
+function replLoadExample(name){
+  document.getElementById('repl-input').value=replExamples[name]||'';
+  document.getElementById('repl-output').innerHTML='<span class="info">Example loaded. Click Run.</span>';
+}
+
+function replRun(){
+  const src=document.getElementById('repl-input').value;
+  const outEl=document.getElementById('repl-output');
+  const statusEl=document.getElementById('repl-status');
+  outEl.innerHTML='';statusEl.textContent='Compiling...';
+  try{
+    const t0=performance.now();
+    const tokens=lex(src);const ast=new Parser(tokens).parse();
+    const program=new Compiler().compile(ast);
+    statusEl.textContent='Running...';
+    const vm=new BroVM(program,{onPrint:s=>{outEl.innerHTML+=escHtml(s)+'\n';outEl.scrollTop=outEl.scrollHeight;},maxSteps:2_000_000});
+    vm.run().then(()=>{
+      const ms=Math.round(performance.now()-t0);statusEl.textContent=`Done in ${ms}ms`;
+    }).catch(e=>{outEl.innerHTML+=`<span class="error">${escHtml(e.message)}</span>\n`;statusEl.textContent='Error';});
+  }catch(e){outEl.innerHTML=`<span class="error">${escHtml(e.message)}</span>`;statusEl.textContent='Error';}
+}
+
+function replBytecode(){
+  const src=document.getElementById('repl-input').value;
+  const outEl=document.getElementById('repl-output');
+  const statusEl=document.getElementById('repl-status');
+  try{
+    const tokens=lex(src);const ast=new Parser(tokens).parse();
+    const program=new Compiler().compile(ast);
+    const dis=disassemble(program);
+    outEl.innerHTML=`<span class="bytecode">${escHtml(dis)}</span>`;
+    statusEl.textContent='Bytecode generated';
+  }catch(e){outEl.innerHTML=`<span class="error">${escHtml(e.message)}</span>`;statusEl.textContent='Error';}
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ══════════════════════════════════════════
+//  DOOM GAME
+// ══════════════════════════════════════════
+
+const DOOM_SRC=`gm
+hodl SCR_W is 80
+hodl VIEW_H is 40
+hodl HUD_H is 8
+hodl TOTAL_H is 48
+hodl MAP_W is 16
+hodl MAP_H is 16
+hodl MAP is "1111111111111111100000001000000110000000100000011000000000000001101110000001110110100000000010011010000000001001100000000000000110000000000000011000000000000001101000000000010110100000000001011011100000111001100000001000000110000000100000011111111111111111"
+hodl PI is 3.14159265
+hodl TWO_PI is 6.28318530
+hodl FOV is 1.0472
+hodl FOV_HALF is 0.5236
+hodl MAX_DEPTH is 16.0
+hodl RAY_STEP is 0.12
+hodl MOVE_SPEED is 0.18
+hodl TURN_SPEED is 0.10
+hodl ENEMY_SPEED is 0.04
+ser player_x is 2.5
+ser player_y is 2.5
+ser player_a is 0.3
+ser last_side is 0
+ser shoot_frames is 0
+ser ammo is 50
+ser hp is 100
+ser kills is 0
+ser hit_flash is 0
+ser game_state is 0
+
+based is_wall(mx, my)
+  wagmi mx less_than 0 or mx gte MAP_W or my less_than 0 or my gte MAP_H
+    paper_hands 1
+  fr
+  wagmi char_at(MAP, my times MAP_W plus mx) equals "1"
+    paper_hands 1
+  fr
+  paper_hands 0
+gg
+
+based cast_ray(px, py, angle)
+  ser rx is Math.cos(angle)
+  ser ry is Math.sin(angle)
+  ser d is 0.0
+  to_the_moon d less_than MAX_DEPTH
+    ser hx is px plus rx times d
+    ser hy is py plus ry times d
+    ser tx is Math.floor(hx)
+    ser ty is Math.floor(hy)
+    wagmi is_wall(tx, ty) equals 1
+      ser frac_x is hx minus Math.floor(hx)
+      wagmi frac_x less_than 0.08 or frac_x greater_than 0.92
+        last_side is 1
+      ngmi
+        last_side is 0
+      fr
+      paper_hands d
+    fr
+    d is d plus RAY_STEP
+  gg
+  paper_hands MAX_DEPTH
+gg
+
+based clamp(v, lo, hi)
+  wagmi v less_than lo
+    paper_hands lo
+  fr
+  wagmi v greater_than hi
+    paper_hands hi
+  fr
+  paper_hands v
+gg
+
+based try_move(dx, dy)
+  ser nx is player_x plus dx
+  ser ny is player_y plus dy
+  wagmi is_wall(Math.floor(nx), Math.floor(player_y)) equals 0
+    player_x is nx
+  fr
+  wagmi is_wall(Math.floor(player_x), Math.floor(ny)) equals 0
+    player_y is ny
+  fr
+gg
+
+based render_enemy(idx)
+  ser ex is enemy_x(idx)
+  ser ey is enemy_y(idx)
+  ser dx is ex minus player_x
+  ser dy is ey minus player_y
+  ser dist is Math.sqrt(dx times dx plus dy times dy)
+  wagmi dist less_than 0.3 or dist greater_than MAX_DEPTH
+    paper_hands 0
+  fr
+  ser angle is Math.atan2(dy, dx) minus player_a
+  to_the_moon angle greater_than PI
+    angle is angle minus TWO_PI
+  gg
+  to_the_moon angle less_than (0 minus PI)
+    angle is angle plus TWO_PI
+  gg
+  wagmi angle less_than (0 minus FOV_HALF minus 0.3) or angle greater_than (FOV_HALF plus 0.3)
+    paper_hands 0
+  fr
+  ser sx is Math.floor((angle divided_by FOV plus 0.5) times SCR_W)
+  ser sprite_h is Math.floor(VIEW_H divided_by dist times 0.8)
+  sprite_h is clamp(sprite_h, 4, VIEW_H)
+  ser sprite_w is Math.floor(sprite_h times 0.5)
+  ser half_w is Math.floor(sprite_w divided_by 2)
+  ser half_h is Math.floor(sprite_h divided_by 2)
+  ser mid_y is VIEW_H divided_by 2
+  ser flash is enemy_flash(idx)
+  ser head_h is Math.floor(sprite_h times 0.25)
+  ser body_h is Math.floor(sprite_h times 0.45)
+  ser body_top is mid_y minus half_h
+  ser col is sx minus half_w
+  to_the_moon col less_than (sx plus half_w)
+    wagmi col gte 0 and col less_than SCR_W
+      wagmi zbuf_get(col) greater_than dist
+        ser frac is (col minus sx plus half_w) divided_by sprite_w
+        ser hr is 180
+        ser hg is 110
+        ser hb is 80
+        ser br is 160
+        ser bg is 40
+        ser bb is 40
+        ser lr is 120
+        ser lg is 30
+        ser lb is 30
+        wagmi flash equals 1
+          hr is 255
+          hg is 255
+          hb is 255
+          br is 255
+          bg is 200
+          bb is 200
+          lr is 255
+          lg is 200
+          lb is 200
+        fr
+        ser in_body is 1
+        wagmi frac less_than 0.15 or frac greater_than 0.85
+          in_body is 0
+        fr
+        wagmi in_body equals 1
+          ser y1 is clamp(body_top, 0, VIEW_H)
+          ser y2 is clamp(body_top plus head_h, 0, VIEW_H)
+          vline(col, y1, y2, hr, hg, hb)
+          wagmi frac greater_than 0.25 and frac less_than 0.45
+            ser eye_y is body_top plus Math.floor(head_h divided_by 2)
+            wagmi eye_y gte 0 and eye_y less_than VIEW_H
+              pixel(col, eye_y, 255, 255, 0)
+            fr
+          fr
+          wagmi frac greater_than 0.55 and frac less_than 0.75
+            ser eye_y is body_top plus Math.floor(head_h divided_by 2)
+            wagmi eye_y gte 0 and eye_y less_than VIEW_H
+              pixel(col, eye_y, 255, 255, 0)
+            fr
+          fr
+          ser y3 is clamp(body_top plus head_h, 0, VIEW_H)
+          ser y4 is clamp(body_top plus head_h plus body_h, 0, VIEW_H)
+          vline(col, y3, y4, br, bg, bb)
+          wagmi frac greater_than 0.2 and frac less_than 0.8
+            ser y5 is clamp(body_top plus head_h plus body_h, 0, VIEW_H)
+            ser y6 is clamp(body_top plus sprite_h, 0, VIEW_H)
+            vline(col, y5, y6, lr, lg, lb)
+          fr
+        fr
+      fr
+    fr
+    col is col plus 1
+  gg
+  paper_hands 1
+gg
+
+based render_all_enemies()
+  ser ei is 0
+  to_the_moon ei less_than enemy_count()
+    wagmi enemy_alive(ei) equals 1
+      render_enemy(ei)
+    fr
+    ei is ei plus 1
+  gg
+gg
+
+based check_shoot()
+  ser best_i is 0 minus 1
+  ser best_dist is MAX_DEPTH
+  ser center_z is zbuf_get(SCR_W divided_by 2)
+  ser ei is 0
+  to_the_moon ei less_than enemy_count()
+    wagmi enemy_alive(ei) equals 1
+      ser ex is enemy_x(ei)
+      ser ey is enemy_y(ei)
+      ser dx is ex minus player_x
+      ser dy is ey minus player_y
+      ser dist is Math.sqrt(dx times dx plus dy times dy)
+      wagmi dist less_than center_z
+        ser angle is Math.atan2(dy, dx) minus player_a
+        to_the_moon angle greater_than PI
+          angle is angle minus TWO_PI
+        gg
+        to_the_moon angle less_than (0 minus PI)
+          angle is angle plus TWO_PI
+        gg
+        ser abs_angle is angle
+        wagmi abs_angle less_than 0
+          abs_angle is 0 minus abs_angle
+        fr
+        wagmi abs_angle less_than 0.18 and dist less_than best_dist
+          best_i is ei
+          best_dist is dist
+        fr
+      fr
+    fr
+    ei is ei plus 1
+  gg
+  wagmi best_i gte 0
+    ser remaining is enemy_hurt(best_i, 1)
+    hit_flash is 3
+    wagmi remaining equals 0
+      kills is kills plus 1
+    fr
+  fr
+gg
+
+based check_enemy_damage()
+  ser ei is 0
+  to_the_moon ei less_than enemy_count()
+    wagmi enemy_alive(ei) equals 1
+      ser dx is enemy_x(ei) minus player_x
+      ser dy is enemy_y(ei) minus player_y
+      ser dist is Math.sqrt(dx times dx plus dy times dy)
+      wagmi dist less_than 1.5
+        hp is hp minus 1
+      fr
+    fr
+    ei is ei plus 1
+  gg
+gg
+
+based move_enemies()
+  ser ei is 0
+  to_the_moon ei less_than enemy_count()
+    wagmi enemy_alive(ei) equals 1
+      ser ex is enemy_x(ei)
+      ser ey is enemy_y(ei)
+      ser dx is player_x minus ex
+      ser dy is player_y minus ey
+      ser dist is Math.sqrt(dx times dx plus dy times dy)
+      wagmi dist greater_than 1.2
+        ser nx is dx divided_by dist times ENEMY_SPEED
+        ser ny is dy divided_by dist times ENEMY_SPEED
+        ser new_ex is ex plus nx
+        ser new_ey is ey plus ny
+        wagmi is_wall(Math.floor(new_ex), Math.floor(ey)) equals 0
+          ex is new_ex
+        fr
+        wagmi is_wall(Math.floor(ex), Math.floor(new_ey)) equals 0
+          ey is new_ey
+        fr
+        enemy_set_pos(ei, ex, ey)
+      fr
+    fr
+    ei is ei plus 1
+  gg
+gg
+
+based draw_gun()
+  ser gx is 33
+  ser gy is 25
+  wagmi shoot_frames greater_than 0
+    gy is gy minus 1
+  fr
+  wagmi shoot_frames greater_than 2
+    rect(gx plus 5, gy minus 7, 4, 4, 255, 255, 120)
+    rect(gx plus 6, gy minus 9, 2, 2, 255, 255, 220)
+    pixel(gx plus 3, gy minus 5, 255, 200, 50)
+    pixel(gx plus 10, gy minus 5, 255, 200, 50)
+    pixel(gx plus 7, gy minus 10, 255, 255, 255)
+  fr
+  rect(gx plus 5, gy minus 3, 4, 3, 120, 120, 130)
+  rect(gx plus 3, gy, 8, 4, 160, 160, 170)
+  rect(gx plus 2, gy plus 1, 10, 2, 145, 145, 155)
+  rect(gx plus 3, gy plus 1, 8, 1, 130, 130, 140)
+  rect(gx plus 4, gy plus 4, 6, 2, 100, 100, 110)
+  rect(gx plus 4, gy plus 6, 6, 5, 120, 75, 35)
+  rect(gx plus 5, gy plus 6, 4, 5, 135, 85, 40)
+  rect(gx plus 5, gy plus 7, 4, 1, 100, 60, 25)
+  rect(gx plus 5, gy plus 9, 4, 1, 100, 60, 25)
+  rect(gx plus 2, gy plus 11, 10, 4, 200, 155, 120)
+  rect(gx plus 3, gy plus 11, 8, 3, 210, 165, 130)
+  rect(gx plus 4, gy plus 15, 6, 3, 195, 150, 115)
+gg
+
+based draw_hud()
+  rect(0, VIEW_H, SCR_W, HUD_H, 45, 45, 50)
+  rect(0, VIEW_H, SCR_W, 1, 80, 75, 60)
+  rect(0, TOTAL_H minus 1, SCR_W, 1, 80, 75, 60)
+  rect(2, VIEW_H plus 2, 14, 4, 35, 35, 40)
+  ser ammo_w is clamp(ammo times 12 divided_by 50, 0, 12)
+  rect(3, VIEW_H plus 3, ammo_w, 2, 200, 200, 40)
+  rect(20, VIEW_H plus 2, 18, 4, 35, 35, 40)
+  ser hp_w is clamp(hp times 16 divided_by 100, 0, 16)
+  ser hp_r is 0
+  ser hp_g is 200
+  wagmi hp less_than 30
+    hp_r is 220
+    hp_g is 40
+  fr
+  rect(21, VIEW_H plus 3, hp_w, 2, hp_r, hp_g, 20)
+  rect(42, VIEW_H plus 2, 8, 5, 200, 160, 120)
+  pixel(44, VIEW_H plus 3, 255, 255, 255)
+  pixel(45, VIEW_H plus 3, 40, 40, 40)
+  pixel(47, VIEW_H plus 3, 255, 255, 255)
+  pixel(48, VIEW_H plus 3, 40, 40, 40)
+  pixel(46, VIEW_H plus 4, 180, 140, 100)
+  wagmi hp greater_than 50
+    rect(44, VIEW_H plus 5, 5, 1, 180, 50, 50)
+  ngmi
+    rect(44, VIEW_H plus 5, 5, 1, 120, 30, 30)
+  fr
+  rect(54, VIEW_H plus 2, 12, 4, 35, 35, 40)
+  ser ki is 0
+  to_the_moon ki less_than kills
+    rect(55 plus ki times 3, VIEW_H plus 3, 2, 2, 220, 40, 40)
+    ki is ki plus 1
+  gg
+  pixel(40, 20, 255, 255, 255)
+  pixel(39, 20, 200, 200, 200)
+  pixel(41, 20, 200, 200, 200)
+  pixel(40, 19, 200, 200, 200)
+  pixel(40, 21, 200, 200, 200)
+  wagmi hit_flash greater_than 0
+    pixel(38, 18, 255, 50, 50)
+    pixel(42, 18, 255, 50, 50)
+    pixel(38, 22, 255, 50, 50)
+    pixel(42, 22, 255, 50, 50)
+    hit_flash is hit_flash minus 1
+  fr
+  wagmi hp less_than 30
+    ser fy is 0
+    to_the_moon fy less_than VIEW_H
+      pixel(0, fy, 120, 0, 0)
+      pixel(1, fy, 80, 0, 0)
+      pixel(SCR_W minus 1, fy, 120, 0, 0)
+      pixel(SCR_W minus 2, fy, 80, 0, 0)
+      fy is fy plus 1
+    gg
+  fr
+gg
+
+based draw_minimap()
+  ser ox is SCR_W minus MAP_W minus 1
+  ser oy is 1
+  rect(ox minus 1, oy minus 1, MAP_W plus 2, MAP_H plus 2, 0, 0, 0)
+  ser my is 0
+  to_the_moon my less_than MAP_H
+    ser mx is 0
+    to_the_moon mx less_than MAP_W
+      wagmi is_wall(mx, my) equals 1
+        pixel(ox plus mx, oy plus my, 80, 80, 90)
+      ngmi
+        pixel(ox plus mx, oy plus my, 15, 15, 20)
+      fr
+      mx is mx plus 1
+    gg
+    my is my plus 1
+  gg
+  pixel(ox plus Math.floor(player_x), oy plus Math.floor(player_y), 0, 255, 0)
+  ser dir_x is Math.floor(player_x plus Math.cos(player_a) times 2)
+  ser dir_y is Math.floor(player_y plus Math.sin(player_a) times 2)
+  pixel(ox plus clamp(dir_x, 0, MAP_W minus 1), oy plus clamp(dir_y, 0, MAP_H minus 1), 255, 255, 0)
+  ser ei is 0
+  to_the_moon ei less_than enemy_count()
+    wagmi enemy_alive(ei) equals 1
+      pixel(ox plus Math.floor(enemy_x(ei)), oy plus Math.floor(enemy_y(ei)), 255, 50, 50)
+    fr
+    ei is ei plus 1
+  gg
+gg
+
+based render_frame()
+  ser col is 0
+  to_the_moon col less_than SCR_W
+    ser ray_a is player_a minus FOV_HALF plus (col times FOV divided_by SCR_W)
+    ser dist is cast_ray(player_x, player_y, ray_a)
+    dist is dist times Math.cos(ray_a minus player_a)
+    zbuf_set(col, dist)
+    ser wh is VIEW_H divided_by dist
+    wagmi wh greater_than VIEW_H
+      wh is VIEW_H
+    fr
+    ser hw is Math.floor(wh divided_by 2.0)
+    ser mid is VIEW_H divided_by 2
+    ser wtop is clamp(mid minus hw, 0, VIEW_H)
+    ser wbot is clamp(mid plus hw, 0, VIEW_H)
+    ser bright is clamp(1.0 minus (dist divided_by MAX_DEPTH), 0.0, 1.0)
+    ser wr is Math.floor(190 times bright plus 15)
+    ser wg is Math.floor(35 times bright plus 5)
+    ser wb is Math.floor(25 times bright plus 5)
+    wagmi last_side equals 1
+      wr is Math.floor(wr times 0.6)
+      wg is Math.floor(wg times 0.6)
+      wb is Math.floor(wb times 0.6)
+    fr
+    ser ceil_mid is Math.floor(wtop divided_by 2)
+    vline(col, 0, ceil_mid, 4, 4, 15)
+    vline(col, ceil_mid, wtop, 8, 8, 28)
+    vline(col, wtop, wbot, wr, wg, wb)
+    ser floor_mid is Math.floor((wbot plus VIEW_H) divided_by 2)
+    vline(col, wbot, floor_mid, 18, 55, 18)
+    vline(col, floor_mid, VIEW_H, 8, 28, 8)
+    col is col plus 1
+  gg
+  render_all_enemies()
+  draw_gun()
+  draw_minimap()
+  draw_hud()
+  hflush()
+gg
+
+based process_input()
+  ser k is key()
+  to_the_moon str_len(k) greater_than 0
+    wagmi k equals "w" or k equals "up"
+      try_move(Math.cos(player_a) times MOVE_SPEED, Math.sin(player_a) times MOVE_SPEED)
+    fr
+    wagmi k equals "s" or k equals "down"
+      try_move(0 minus (Math.cos(player_a) times MOVE_SPEED), 0 minus (Math.sin(player_a) times MOVE_SPEED))
+    fr
+    wagmi k equals "a" or k equals "left"
+      player_a is player_a minus TURN_SPEED
+    fr
+    wagmi k equals "d" or k equals "right"
+      player_a is player_a plus TURN_SPEED
+    fr
+    wagmi k equals "space"
+      wagmi ammo greater_than 0 and shoot_frames equals 0
+        shoot_frames is 4
+        ammo is ammo minus 1
+        check_shoot()
+      fr
+    fr
+    wagmi k equals "q" or k equals "esc"
+      game_state is 3
+    fr
+    k is key()
+  gg
+gg
+
+hires(SCR_W, TOTAL_H)
+zbuf_init(SCR_W)
+enemies_init()
+game_init()
+
+enemy_add(5.5, 7.5, 3)
+enemy_add(10.5, 3.5, 3)
+enemy_add(12.5, 10.5, 3)
+enemy_add(3.5, 13.5, 3)
+
+to_the_moon game_state equals 0
+  process_input()
+  wagmi shoot_frames greater_than 0
+    shoot_frames is shoot_frames minus 1
+  fr
+  move_enemies()
+  check_enemy_damage()
+  wagmi hp lte 0
+    hp is 0
+    game_state is 2
+  fr
+  wagmi kills gte 4 and game_state equals 0
+    game_state is 1
+    render_frame()
+    sleep(500)
+  fr
+  wagmi game_state equals 0
+    render_frame()
+    sleep(40)
+  fr
+gg
+
+gn`;
+
+// ── Game controller ──
+let gameVM=null;
+
+function startGame(){
+  if(gameVM)gameVM.stop();
+  const canvas=document.getElementById('game-canvas');
+  canvas.style.width='640px';canvas.style.height='384px';
+  document.getElementById('game-overlay').classList.add('hidden');
+  document.getElementById('game-end').classList.add('hidden');
+
+  try{
+    const tokens=lex(DOOM_SRC);
+    const ast=new Parser(tokens).parse();
+    const program=new Compiler().compile(ast);
+    gameVM=new BroVM(program,{canvas,onPrint:s=>console.log('[doom]',s)});
+
+    gameVM.run().then(()=>{
+      const gs=gameVM.globals.get('game_state');
+      const kills=gameVM.globals.get('kills')||0;
+      const ammo=gameVM.globals.get('ammo')||0;
+      const hp=gameVM.globals.get('hp')||0;
+      const endEl=document.getElementById('game-end');
+      const titleEl=document.getElementById('end-title');
+      const statsEl=document.getElementById('end-stats');
+      endEl.classList.remove('hidden');
+      if(gs===1){titleEl.textContent='YOU WIN';titleEl.style.color='var(--green)';statsEl.innerHTML=`Kills: 4/4 | Ammo: ${ammo} | HP: ${hp}%`;}
+      else if(gs===2){titleEl.textContent='YOU DIED';titleEl.style.color='var(--red)';statsEl.innerHTML=`Kills: ${kills}/4`;}
+      else{titleEl.textContent='QUIT';titleEl.style.color='var(--yellow)';statsEl.innerHTML=`Kills: ${kills}/4`;}
+    }).catch(e=>console.error('doom error:',e));
+  }catch(e){console.error('compile error:',e);}
+}
+
+// Key handling
+const KEY_MAP={'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ':'space','Escape':'esc'};
+document.addEventListener('keydown',e=>{
+  if(!gameVM||!gameVM.gameMode)return;
+  const k=KEY_MAP[e.key]||e.key.toLowerCase();
+  if(['w','a','s','d','up','down','left','right','space','q','esc'].includes(k)){
+    e.preventDefault();gameVM.keyQueue.push(k);
+  }
+});
+
+// Click to play
+document.getElementById('game-overlay').addEventListener('click',startGame);
+
+// Prevent space from scrolling when game is active
+document.addEventListener('keydown',e=>{if(e.key===' '&&gameVM&&gameVM.gameMode)e.preventDefault();});
+</script>
+</body>
+</html>
