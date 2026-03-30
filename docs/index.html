@@ -467,7 +467,12 @@ footer a:hover { color: var(--red); }
   touch-action: manipulation;
 }
 
-.touch-controls.hidden { display: none; }
+.touch-controls { display: none; }
+
+@media (pointer: coarse), (hover: none) {
+  .touch-controls { display: flex !important; }
+  .desktop-only { display: none !important; }
+}
 
 .touch-left, .touch-right {
   display: flex;
@@ -612,8 +617,8 @@ html, body { overflow-x: hidden; }
     <kbd>E</kbd> jump &nbsp;&nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> weapons &nbsp;&nbsp;| 3 levels. 15 enemies.
   </div>
 
-  <!-- Mobile touch controls -->
-  <div class="touch-controls hidden" id="touch-controls">
+  <!-- Mobile touch controls (visible on touch devices) -->
+  <div class="touch-controls" id="touch-controls">
     <div class="touch-left">
       <button class="touch-btn touch-up" data-key="w">W</button>
       <div class="touch-mid-row">
@@ -2041,7 +2046,6 @@ function startGame(){
       const titleEl=document.getElementById('end-title');
       const statsEl=document.getElementById('end-stats');
       endEl.classList.remove('hidden');
-      document.getElementById('touch-controls').classList.add('hidden');
       if(gs===1){titleEl.textContent='YOU WIN';titleEl.style.color='var(--green)';statsEl.innerHTML=`Kills: 4/4 | Ammo: ${ammo} | HP: ${hp}%`;}
       else if(gs===2){titleEl.textContent='YOU DIED';titleEl.style.color='var(--red)';statsEl.innerHTML=`Kills: ${kills}/4`;}
       else{titleEl.textContent='QUIT';titleEl.style.color='var(--yellow)';statsEl.innerHTML=`Kills: ${kills}/4`;}
@@ -2075,18 +2079,6 @@ document.getElementById('game-overlay').addEventListener('click',startGame);
 document.addEventListener('keydown',e=>{if(e.key===' '&&gameVM&&gameVM.gameMode)e.preventDefault();});
 
 // ── Mobile touch controls ──
-const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-if (isMobile) {
-  document.querySelector('.desktop-only').style.display = 'none';
-  // Show touch controls when game starts
-  const origStart = startGame;
-  startGame = function() {
-    origStart();
-    document.getElementById('touch-controls').classList.remove('hidden');
-  };
-  // Update overlay text
-  document.querySelector('.game-overlay p').textContent = 'Tap to play — compiled BroLang bytecode';
-}
 
 // Touch button handling — repeat keys while held
 document.querySelectorAll('.touch-btn').forEach(btn => {
