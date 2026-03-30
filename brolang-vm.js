@@ -35,6 +35,8 @@ const TokenType = {
   FEW: 'FEW', COPE: 'COPE',
   PROBABLY_NOTHING: 'PROBABLY_NOTHING',
   APE_IN: 'APE_IN',
+  APE_OUT: 'APE_OUT',
+  STOP: 'STOP',
   NFA: 'NFA',
 
   // Operators
@@ -70,6 +72,8 @@ const KEYWORDS = {
   'few': TokenType.FEW, 'cope': TokenType.COPE,
   'probably_nothing': TokenType.PROBABLY_NOTHING,
   'ape_in': TokenType.APE_IN,
+  'ape_out': TokenType.APE_OUT,
+  'stop': TokenType.STOP,
   'nfa': TokenType.NFA,
   'plus': TokenType.PLUS, 'minus': TokenType.MINUS,
   'times': TokenType.TIMES, 'divided_by': TokenType.DIVIDED_BY,
@@ -112,9 +116,20 @@ function lex(source) {
       continue;
     }
 
-    // Comment line
-    if (line.substring(pos).startsWith('nfa ') || line.substring(pos) === 'nfa') {
-      tokens.push(new Token(TokenType.NFA, line.substring(pos), lineNum + 1));
+    // Comment line (nfa ...)
+    const restOfLine = line.substring(pos);
+    if (restOfLine.startsWith('nfa ') || restOfLine === 'nfa' ||
+        restOfLine.toUpperCase().startsWith('NFA ') || restOfLine.toUpperCase() === 'NFA') {
+      tokens.push(new Token(TokenType.NFA, restOfLine, lineNum + 1));
+      tokens.push(new Token(TokenType.NEWLINE, '\\n', lineNum + 1));
+      continue;
+    }
+
+    // COBOL-style decorative lines (skip as comments)
+    const upper = restOfLine.toUpperCase().trim();
+    if (upper.endsWith('DIVISION.') || upper.endsWith('SECTION.') ||
+        upper.startsWith('PROGRAM-ID.') || upper.startsWith('VIBES.')) {
+      tokens.push(new Token(TokenType.NFA, restOfLine, lineNum + 1));
       tokens.push(new Token(TokenType.NEWLINE, '\\n', lineNum + 1));
       continue;
     }
@@ -164,20 +179,21 @@ function lex(source) {
           pos++;
         }
 
-        // Check for multi-word keywords by peeking ahead
-        for (const mw of MULTI_WORD_KEYWORDS) {
-          if (mw.startsWith(word + '_')) {
-            const rest = mw.substring(word.length);
-            if (line.substring(pos).startsWith(rest.replace('_', ' '))) {
-              // Doesn't apply — underscores in source, so just check directly
-            }
-          }
-        }
-
-        if (KEYWORDS[word]) {
-          tokens.push(new Token(KEYWORDS[word], word, lineNum + 1));
+        // Case-insensitive keyword lookup (WAGMI = wagmi = Wagmi)
+        const lower = word.toLowerCase();
+        if (KEYWORDS[lower]) {
+          tokens.push(new Token(KEYWORDS[lower], lower, lineNum + 1));
         } else {
           tokens.push(new Token(TokenType.IDENT, word, lineNum + 1));
+        }
+
+        // Skip optional trailing period (COBOL style: fr. gg. STOP RUG.)
+        if (pos < line.length && line[pos] === '.') {
+          // Only skip if period is at end of line or before whitespace (not Math.floor)
+          const nextChar = pos + 1 < line.length ? line[pos + 1] : '\n';
+          if (nextChar === ' ' || nextChar === '\t' || nextChar === '\n' || pos + 1 >= line.length) {
+            pos++; // skip the period
+          }
         }
         continue;
       }
@@ -253,17 +269,24 @@ class Parser {
 
   parse() {
     this.skipNewlines();
-    this.expect(TokenType.GM);
+    this.match(TokenType.GM); // optional — COBOL divisions replace gm
     this.skipNewlines();
 
     const body = [];
-    while (this.peek().type !== TokenType.GN && this.peek().type !== TokenType.EOF) {
+    while (this.peek().type !== TokenType.GN &&
+           this.peek().type !== TokenType.STOP &&
+           this.peek().type !== TokenType.EOF) {
       const stmt = this.parseStatement();
       if (stmt) body.push(stmt);
       this.skipNewlines();
     }
 
+    // Accept gn, STOP RUG, or EOF
     if (this.peek().type === TokenType.GN) this.advance();
+    else if (this.peek().type === TokenType.STOP) {
+      this.advance(); // STOP
+      if (this.peek().type === TokenType.RUG) this.advance(); // RUG (optional)
+    }
     return { type: N.PROGRAM, body };
   }
 
@@ -307,7 +330,7 @@ class Parser {
     return { type: N.CONST_DECL, name, value };
   }
 
-  // based name(a, b, c) ... gg
+  // based name(a, b, c) ape_in ... ape_out  OR  based name(a, b, c) ... gg
   parseFuncDecl() {
     this.expect(TokenType.BASED);
     const name = this.expect(TokenType.IDENT).value;
@@ -320,15 +343,16 @@ class Parser {
       }
     }
     this.expect(TokenType.RPAREN);
+    this.match(TokenType.APE_IN); // optional ape_in
     this.skipNewlines();
 
     const body = [];
-    while (this.peek().type !== TokenType.GG) {
+    while (this.peek().type !== TokenType.GG && this.peek().type !== TokenType.APE_OUT) {
       const stmt = this.parseStatement();
       if (stmt) body.push(stmt);
       this.skipNewlines();
     }
-    this.expect(TokenType.GG);
+    this.advance(); // consume gg or ape_out
     return { type: N.FUNC_DECL, name, params, body };
   }
 
@@ -338,45 +362,56 @@ class Parser {
     return { type: N.RETURN, value };
   }
 
-  // wagmi expr ... ngmi ... fr
+  // wagmi expr ape_in ... ape_out ngmi ape_in ... ape_out fr.
+  // OR: wagmi expr ... ngmi ... fr
   parseIf() {
     this.expect(TokenType.WAGMI);
     const condition = this.parseExpr();
+    this.match(TokenType.APE_IN); // optional ape_in
     this.skipNewlines();
 
     const consequent = [];
-    while (this.peek().type !== TokenType.NGMI && this.peek().type !== TokenType.FR) {
+    while (this.peek().type !== TokenType.NGMI &&
+           this.peek().type !== TokenType.FR &&
+           this.peek().type !== TokenType.APE_OUT) {
       const stmt = this.parseStatement();
       if (stmt) consequent.push(stmt);
       this.skipNewlines();
     }
 
+    // Consume ape_out if present
+    const hadApeOut = this.match(TokenType.APE_OUT);
+
     let alternate = [];
     if (this.match(TokenType.NGMI)) {
+      this.match(TokenType.APE_IN); // optional ape_in
       this.skipNewlines();
-      while (this.peek().type !== TokenType.FR) {
+      while (this.peek().type !== TokenType.FR &&
+             this.peek().type !== TokenType.APE_OUT) {
         const stmt = this.parseStatement();
         if (stmt) alternate.push(stmt);
         this.skipNewlines();
       }
+      this.match(TokenType.APE_OUT); // optional ape_out
     }
-    this.expect(TokenType.FR);
+    this.match(TokenType.FR); // optional fr (required in old syntax, optional with ape_in/ape_out)
     return { type: N.IF, condition, consequent, alternate };
   }
 
-  // to_the_moon expr ... gg
+  // to_the_moon expr ape_in ... ape_out  OR  to_the_moon expr ... gg
   parseWhile() {
     this.expect(TokenType.TO_THE_MOON);
     const condition = this.parseExpr();
+    this.match(TokenType.APE_IN); // optional ape_in
     this.skipNewlines();
 
     const body = [];
-    while (this.peek().type !== TokenType.GG) {
+    while (this.peek().type !== TokenType.GG && this.peek().type !== TokenType.APE_OUT) {
       const stmt = this.parseStatement();
       if (stmt) body.push(stmt);
       this.skipNewlines();
     }
-    this.expect(TokenType.GG);
+    this.advance(); // consume gg or ape_out
     return { type: N.WHILE, condition, body };
   }
 

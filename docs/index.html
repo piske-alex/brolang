@@ -531,38 +531,42 @@ footer a:hover { color: var(--red); }
     </div>
     <div class="repl-body">
       <div class="repl-editor">
-        <textarea id="repl-input" spellcheck="false">gm
+        <textarea id="repl-input" spellcheck="false">IDENTIFICATION DIVISION.
+PROGRAM-ID. HELLO-BRO.
+VIBES. IMMACULATE.
 
-nfa Welcome to BroLang!
-nfa Try editing this code and clicking Run.
+DATA DIVISION.
+HODL GREETING is "wagmi"
+SER count is 0
 
-hodl GREETING is "wagmi"
-ser count is 0
+PROCEDURE DIVISION.
 
-based shout(msg, count)
-  ser i is 0
-  to_the_moon i less_than count
-    shill msg
-    i is i plus 1
-  gg
-  paper_hands count
-gg
+BASED shout(msg, n) APE_IN
+  SER i is 0
+  TO_THE_MOON i LESS_THAN n APE_IN
+    SHILL msg
+    i is i PLUS 1
+  APE_OUT
+  PAPER_HANDS n
+APE_OUT
 
-shill "gm ser"
-shill "1 + 1 = " plus (1 plus 1)
+MAIN SECTION.
 
-ser result is shout(GREETING, 3)
-shill "Shouted " plus result plus " x"
+SHILL "gm ser"
+SHILL "1 + 1 = " PLUS (1 PLUS 1)
 
-wagmi result greater_than 2
-  shill "few (that means true)"
-ngmi
-  shill "cope (that means false)"
-fr
+SER result is shout(GREETING, 3)
+SHILL "Shouted " PLUS result PLUS " x"
 
-shill "gn ser"
+WAGMI result GREATER_THAN 2 APE_IN
+  SHILL "few (that means true)"
+APE_OUT NGMI APE_IN
+  SHILL "cope (that means false)"
+APE_OUT
 
-gn</textarea>
+SHILL "gn ser"
+
+STOP RUG.</textarea>
       </div>
       <div class="repl-toolbar">
         <button class="btn btn-run" onclick="replRun()">Run</button>
@@ -652,9 +656,9 @@ gn</textarea>
 <!-- ═════════════════════════════════════════════════════════ -->
 <script>
 // ── Token types ──
-const T={NUMBER:'NUMBER',STRING:'STRING',IDENT:'IDENT',GM:'GM',GN:'GN',SER:'SER',HODL:'HODL',IS:'IS',BASED:'BASED',GG:'GG',PAPER_HANDS:'PAPER_HANDS',WAGMI:'WAGMI',NGMI:'NGMI',FR:'FR',TO_THE_MOON:'TO_THE_MOON',TOUCH_GRASS:'TOUCH_GRASS',SHILL:'SHILL',RUG:'RUG',FEW:'FEW',COPE:'COPE',PROBABLY_NOTHING:'PROBABLY_NOTHING',APE_IN:'APE_IN',NFA:'NFA',PLUS:'PLUS',MINUS:'MINUS',TIMES:'TIMES',DIVIDED_BY:'DIVIDED_BY',MOD:'MOD',EQUALS:'EQUALS',GREATER_THAN:'GREATER_THAN',LESS_THAN:'LESS_THAN',GTE:'GTE',LTE:'LTE',AND:'AND',OR:'OR',NOT:'NOT',LPAREN:'LPAREN',RPAREN:'RPAREN',LBRACKET:'LBRACKET',RBRACKET:'RBRACKET',COMMA:'COMMA',DOT:'DOT',NEWLINE:'NEWLINE',EOF:'EOF'};
+const T={NUMBER:'NUMBER',STRING:'STRING',IDENT:'IDENT',GM:'GM',GN:'GN',SER:'SER',HODL:'HODL',IS:'IS',BASED:'BASED',GG:'GG',PAPER_HANDS:'PAPER_HANDS',WAGMI:'WAGMI',NGMI:'NGMI',FR:'FR',TO_THE_MOON:'TO_THE_MOON',TOUCH_GRASS:'TOUCH_GRASS',SHILL:'SHILL',RUG:'RUG',FEW:'FEW',COPE:'COPE',PROBABLY_NOTHING:'PROBABLY_NOTHING',APE_IN:'APE_IN',APE_OUT:'APE_OUT',STOP:'STOP',NFA:'NFA',PLUS:'PLUS',MINUS:'MINUS',TIMES:'TIMES',DIVIDED_BY:'DIVIDED_BY',MOD:'MOD',EQUALS:'EQUALS',GREATER_THAN:'GREATER_THAN',LESS_THAN:'LESS_THAN',GTE:'GTE',LTE:'LTE',AND:'AND',OR:'OR',NOT:'NOT',LPAREN:'LPAREN',RPAREN:'RPAREN',LBRACKET:'LBRACKET',RBRACKET:'RBRACKET',COMMA:'COMMA',DOT:'DOT',NEWLINE:'NEWLINE',EOF:'EOF'};
 
-const KW={'gm':T.GM,'gn':T.GN,'ser':T.SER,'hodl':T.HODL,'is':T.IS,'based':T.BASED,'gg':T.GG,'paper_hands':T.PAPER_HANDS,'wagmi':T.WAGMI,'ngmi':T.NGMI,'fr':T.FR,'to_the_moon':T.TO_THE_MOON,'touch_grass':T.TOUCH_GRASS,'shill':T.SHILL,'rug':T.RUG,'few':T.FEW,'cope':T.COPE,'probably_nothing':T.PROBABLY_NOTHING,'ape_in':T.APE_IN,'nfa':T.NFA,'plus':T.PLUS,'minus':T.MINUS,'times':T.TIMES,'divided_by':T.DIVIDED_BY,'mod':T.MOD,'equals':T.EQUALS,'greater_than':T.GREATER_THAN,'less_than':T.LESS_THAN,'gte':T.GTE,'lte':T.LTE,'and':T.AND,'or':T.OR,'not':T.NOT};
+const KW={'gm':T.GM,'gn':T.GN,'ser':T.SER,'hodl':T.HODL,'is':T.IS,'based':T.BASED,'gg':T.GG,'paper_hands':T.PAPER_HANDS,'wagmi':T.WAGMI,'ngmi':T.NGMI,'fr':T.FR,'to_the_moon':T.TO_THE_MOON,'touch_grass':T.TOUCH_GRASS,'shill':T.SHILL,'rug':T.RUG,'few':T.FEW,'cope':T.COPE,'probably_nothing':T.PROBABLY_NOTHING,'ape_in':T.APE_IN,'ape_out':T.APE_OUT,'stop':T.STOP,'nfa':T.NFA,'plus':T.PLUS,'minus':T.MINUS,'times':T.TIMES,'divided_by':T.DIVIDED_BY,'mod':T.MOD,'equals':T.EQUALS,'greater_than':T.GREATER_THAN,'less_than':T.LESS_THAN,'gte':T.GTE,'lte':T.LTE,'and':T.AND,'or':T.OR,'not':T.NOT};
 
 class Tok{constructor(t,v,l){this.type=t;this.value=v;this.line=l;}}
 
@@ -664,8 +668,11 @@ function lex(src){
     let line=lines[ln],pos=0;
     while(pos<line.length&&(line[pos]===' '||line[pos]==='\t'))pos++;
     if(pos>=line.length){tokens.push(new Tok(T.NEWLINE,'\\n',ln+1));continue;}
-    if(line.substring(pos).startsWith('nfa ')||line.substring(pos)==='nfa'){
-      tokens.push(new Tok(T.NFA,line.substring(pos),ln+1));
+    const rest=line.substring(pos);const upper=rest.toUpperCase().trim();
+    if(rest.toLowerCase().startsWith('nfa ')||rest.toLowerCase()==='nfa'||
+       upper.endsWith('DIVISION.')||upper.endsWith('SECTION.')||
+       upper.startsWith('PROGRAM-ID.')||upper.startsWith('VIBES.')){
+      tokens.push(new Tok(T.NFA,rest,ln+1));
       tokens.push(new Tok(T.NEWLINE,'\\n',ln+1));continue;
     }
     while(pos<line.length){
@@ -683,7 +690,9 @@ function lex(src){
       if(line[pos]==='.'){tokens.push(new Tok(T.DOT,'.',ln+1));pos++;continue;}
       if(/[a-zA-Z_]/.test(line[pos])){
         let w='';while(pos<line.length&&/[a-zA-Z0-9_]/.test(line[pos])){w+=line[pos];pos++;}
-        tokens.push(new Tok(KW[w]||T.IDENT,w,ln+1));continue;
+        const lo=w.toLowerCase();tokens.push(new Tok(KW[lo]||T.IDENT,KW[lo]?lo:w,ln+1));
+        if(pos<line.length&&line[pos]==='.'&&(pos+1>=line.length||/\s/.test(line[pos+1])))pos++;
+        continue;
       }
       pos++;
     }
@@ -705,10 +714,11 @@ class Parser{
   match(type){if(this.peek().type===type){this.advance();return true;}return false;}
 
   parse(){
-    this.skipNL();this.expect(T.GM);this.skipNL();
+    this.skipNL();this.match(T.GM);this.skipNL();
     const body=[];
-    while(this.peek().type!==T.GN&&this.peek().type!==T.EOF){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
+    while(this.peek().type!==T.GN&&this.peek().type!==T.STOP&&this.peek().type!==T.EOF){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
     if(this.peek().type===T.GN)this.advance();
+    else if(this.peek().type===T.STOP){this.advance();if(this.peek().type===T.RUG)this.advance();}
     return{type:N.PROGRAM,body};
   }
 
@@ -730,21 +740,22 @@ class Parser{
   parseFunc(){
     this.expect(T.BASED);const name=this.expect(T.IDENT).value;this.expect(T.LPAREN);
     const params=[];if(this.peek().type!==T.RPAREN){params.push(this.expect(T.IDENT).value);while(this.match(T.COMMA))params.push(this.expect(T.IDENT).value);}
-    this.expect(T.RPAREN);this.skipNL();
-    const body=[];while(this.peek().type!==T.GG){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
-    this.expect(T.GG);return{type:N.FUNC_DECL,name,params,body};
+    this.expect(T.RPAREN);this.match(T.APE_IN);this.skipNL();
+    const body=[];while(this.peek().type!==T.GG&&this.peek().type!==T.APE_OUT){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
+    this.advance();return{type:N.FUNC_DECL,name,params,body};
   }
   parseRet(){this.expect(T.PAPER_HANDS);return{type:N.RETURN,value:this.parseExpr()};}
   parseIf(){
-    this.expect(T.WAGMI);const cond=this.parseExpr();this.skipNL();
-    const cons=[];while(this.peek().type!==T.NGMI&&this.peek().type!==T.FR){const s=this.parseStmt();if(s)cons.push(s);this.skipNL();}
-    let alt=[];if(this.match(T.NGMI)){this.skipNL();while(this.peek().type!==T.FR){const s=this.parseStmt();if(s)alt.push(s);this.skipNL();}}
-    this.expect(T.FR);return{type:N.IF,condition:cond,consequent:cons,alternate:alt};
+    this.expect(T.WAGMI);const cond=this.parseExpr();this.match(T.APE_IN);this.skipNL();
+    const cons=[];while(this.peek().type!==T.NGMI&&this.peek().type!==T.FR&&this.peek().type!==T.APE_OUT){const s=this.parseStmt();if(s)cons.push(s);this.skipNL();}
+    this.match(T.APE_OUT);
+    let alt=[];if(this.match(T.NGMI)){this.match(T.APE_IN);this.skipNL();while(this.peek().type!==T.FR&&this.peek().type!==T.APE_OUT){const s=this.parseStmt();if(s)alt.push(s);this.skipNL();}this.match(T.APE_OUT);}
+    this.match(T.FR);return{type:N.IF,condition:cond,consequent:cons,alternate:alt};
   }
   parseWhile(){
-    this.expect(T.TO_THE_MOON);const cond=this.parseExpr();this.skipNL();
-    const body=[];while(this.peek().type!==T.GG){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
-    this.expect(T.GG);return{type:N.WHILE,condition:cond,body};
+    this.expect(T.TO_THE_MOON);const cond=this.parseExpr();this.match(T.APE_IN);this.skipNL();
+    const body=[];while(this.peek().type!==T.GG&&this.peek().type!==T.APE_OUT){const s=this.parseStmt();if(s)body.push(s);this.skipNL();}
+    this.advance();return{type:N.WHILE,condition:cond,body};
   }
   parsePrint(){this.expect(T.SHILL);return{type:N.PRINT,value:this.parseExpr()};}
   parseThrow(){this.expect(T.RUG);return{type:N.THROW,value:this.parseExpr()};}
