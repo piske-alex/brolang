@@ -565,14 +565,14 @@ gg
 based setup_level()
   enemies_clear()
   kills is 0
-  player_x is 2.5
-  player_y is 2.5
-  player_a is 0.3
   player_z is 0.0
   player_vz is 0.0
   wagmi current_level equals 1
     active_map is MAP1
     level_target is 4
+    player_x is 2.5
+    player_y is 2.5
+    player_a is 0.3
     enemy_add(5.5, 7.5, 3)
     enemy_add(10.5, 3.5, 3)
     enemy_add(12.5, 10.5, 3)
@@ -581,15 +581,21 @@ based setup_level()
   wagmi current_level equals 2
     active_map is MAP2
     level_target is 5
-    enemy_add(5.5, 3.5, 4)
-    enemy_add(13.5, 2.5, 4)
-    enemy_add(8.5, 8.5, 4)
-    enemy_add(2.5, 12.5, 4)
-    enemy_add(12.5, 13.5, 4)
+    player_x is 1.5
+    player_y is 1.5
+    player_a is 0.5
+    enemy_add(5.5, 5.5, 4)
+    enemy_add(13.5, 1.5, 4)
+    enemy_add(8.5, 9.5, 4)
+    enemy_add(1.5, 13.5, 4)
+    enemy_add(13.5, 12.5, 4)
   fr
   wagmi current_level equals 3
     active_map is MAP3
     level_target is 6
+    player_x is 1.5
+    player_y is 1.5
+    player_a is 0.8
     enemy_add(7.5, 3.5, 5)
     enemy_add(7.5, 12.5, 5)
     enemy_add(3.5, 7.5, 5)
