@@ -1,0 +1,295 @@
+{
+  "metadata": {
+    "benchmark": "BroLang AI-Friendliness Benchmark",
+    "version": "1.0",
+    "tokenizer": "cl100k_base (GPT-4o)",
+    "date": "2026-03-31T20:36:16.238Z",
+    "corpus_size": 20,
+    "languages": [
+      "brolang",
+      "javascript",
+      "python",
+      "rust",
+      "solidity"
+    ]
+  },
+  "aggregate": {
+    "brolang": {
+      "mean_tokens": 69.5,
+      "stddev_tokens": 44.8,
+      "total_tokens": 1389,
+      "mean_naturalness": 52.6,
+      "ambiguity_score": 0
+    },
+    "javascript": {
+      "mean_tokens": 57.5,
+      "stddev_tokens": 39.7,
+      "total_tokens": 1151,
+      "mean_naturalness": 30.3,
+      "ambiguity_score": 25
+    },
+    "python": {
+      "mean_tokens": 52,
+      "stddev_tokens": 38,
+      "total_tokens": 1040,
+      "mean_naturalness": 31.9,
+      "ambiguity_score": 14
+    },
+    "rust": {
+      "mean_tokens": 70.7,
+      "stddev_tokens": 47.4,
+      "total_tokens": 1414,
+      "mean_naturalness": 28.6,
+      "ambiguity_score": 18
+    },
+    "solidity": {
+      "mean_tokens": 81.2,
+      "stddev_tokens": 33.9,
+      "total_tokens": 1623,
+      "mean_naturalness": 34.7,
+      "ambiguity_score": 8
+    }
+  },
+  "per_program": [
+    {
+      "id": "T1-01",
+      "name": "Hello World",
+      "tier": 1,
+      "tokens": {
+        "brolang": 9,
+        "javascript": 6,
+        "python": 5,
+        "rust": 11,
+        "solidity": 40
+      }
+    },
+    {
+      "id": "T1-02",
+      "name": "Variable Declaration",
+      "tier": 1,
+      "tokens": {
+        "brolang": 18,
+        "javascript": 15,
+        "python": 14,
+        "rust": 20,
+        "solidity": 46
+      }
+    },
+    {
+      "id": "T1-03",
+      "name": "Arithmetic",
+      "tier": 1,
+      "tokens": {
+        "brolang": 34,
+        "javascript": 30,
+        "python": 25,
+        "rust": 40,
+        "solidity": 71
+      }
+    },
+    {
+      "id": "T1-04",
+      "name": "Constants",
+      "tier": 1,
+      "tokens": {
+        "brolang": 33,
+        "javascript": 28,
+        "python": 27,
+        "rust": 41,
+        "solidity": 42
+      }
+    },
+    {
+      "id": "T2-01",
+      "name": "If/Else",
+      "tier": 2,
+      "tokens": {
+        "brolang": 34,
+        "javascript": 30,
+        "python": 23,
+        "rust": 35,
+        "solidity": 62
+      }
+    },
+    {
+      "id": "T2-02",
+      "name": "While Loop",
+      "tier": 2,
+      "tokens": {
+        "brolang": 34,
+        "javascript": 28,
+        "python": 22,
+        "rust": 35,
+        "solidity": 65
+      }
+    },
+    {
+      "id": "T2-03",
+      "name": "Nested Conditionals",
+      "tier": 2,
+      "tokens": {
+        "brolang": 56,
+        "javascript": 51,
+        "python": 38,
+        "rust": 53,
+        "solidity": 75
+      }
+    },
+    {
+      "id": "T2-04",
+      "name": "Accumulator Loop",
+      "tier": 2,
+      "tokens": {
+        "brolang": 51,
+        "javascript": 45,
+        "python": 40,
+        "rust": 53,
+        "solidity": 73
+      }
+    },
+    {
+      "id": "T3-01",
+      "name": "Simple Function",
+      "tier": 3,
+      "tokens": {
+        "brolang": 24,
+        "javascript": 19,
+        "python": 16,
+        "rust": 30,
+        "solidity": 45
+      }
+    },
+    {
+      "id": "T3-02",
+      "name": "Multiple Parameters",
+      "tier": 3,
+      "tokens": {
+        "brolang": 65,
+        "javascript": 47,
+        "python": 42,
+        "rust": 63,
+        "solidity": 69
+      }
+    },
+    {
+      "id": "T3-03",
+      "name": "Recursive Function",
+      "tier": 3,
+      "tokens": {
+        "brolang": 46,
+        "javascript": 36,
+        "python": 32,
+        "rust": 45,
+        "solidity": 60
+      }
+    },
+    {
+      "id": "T3-04",
+      "name": "Function Composition",
+      "tier": 3,
+      "tokens": {
+        "brolang": 52,
+        "javascript": 45,
+        "python": 42,
+        "rust": 65,
+        "solidity": 69
+      }
+    },
+    {
+      "id": "T4-01",
+      "name": "Swap Amount Out",
+      "tier": 4,
+      "tokens": {
+        "brolang": 104,
+        "javascript": 94,
+        "python": 86,
+        "rust": 117,
+        "solidity": 122
+      }
+    },
+    {
+      "id": "T4-02",
+      "name": "Fee Calculation",
+      "tier": 4,
+      "tokens": {
+        "brolang": 91,
+        "javascript": 69,
+        "python": 65,
+        "rust": 78,
+        "solidity": 87
+      }
+    },
+    {
+      "id": "T4-03",
+      "name": "Liquidation Check",
+      "tier": 4,
+      "tokens": {
+        "brolang": 102,
+        "javascript": 87,
+        "python": 78,
+        "rust": 103,
+        "solidity": 73
+      }
+    },
+    {
+      "id": "T4-04",
+      "name": "Price Impact",
+      "tier": 4,
+      "tokens": {
+        "brolang": 158,
+        "javascript": 142,
+        "python": 139,
+        "rust": 180,
+        "solidity": 164
+      }
+    },
+    {
+      "id": "T5-01",
+      "name": "FizzBuzz",
+      "tier": 5,
+      "tokens": {
+        "brolang": 107,
+        "javascript": 75,
+        "python": 65,
+        "rust": 84,
+        "solidity": 88
+      }
+    },
+    {
+      "id": "T5-02",
+      "name": "Binary Search",
+      "tier": 5,
+      "tokens": {
+        "brolang": 124,
+        "javascript": 91,
+        "python": 83,
+        "rust": 105,
+        "solidity": 131
+      }
+    },
+    {
+      "id": "T5-03",
+      "name": "Moving Average",
+      "tier": 5,
+      "tokens": {
+        "brolang": 76,
+        "javascript": 53,
+        "python": 50,
+        "rust": 64,
+        "solidity": 94
+      }
+    },
+    {
+      "id": "T5-04",
+      "name": "Multi-step Trade",
+      "tier": 5,
+      "tokens": {
+        "brolang": 171,
+        "javascript": 160,
+        "python": 148,
+        "rust": 192,
+        "solidity": 147
+      }
+    }
+  ]
+}
