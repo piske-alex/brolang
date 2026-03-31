@@ -206,7 +206,8 @@ class SBFEmitter {
   syscall(hash) {
     this._syscalls = this._syscalls || [];
     this._syscalls.push({ instrIndex: this.instructions.length, hash });
-    this.emit(BPF_JMP | BPF_CALL, 0, 0, 0, 0); // imm=0, relocation patches it
+    // src=1 for syscall/helper call, imm=0xFFFFFFFF as placeholder (patched by relocation)
+    this.emit(BPF_JMP | BPF_CALL, 0, 1, 0, -1);
   }
 
   // exit
@@ -247,52 +248,26 @@ class SBFEmitter {
     this.syscall(SYSCALL_SOL_LOG);
   }
 
-  // Append raw bytes to the instruction stream (for inline string data)
-  appendData(bytes) {
-    // Pad to 8-byte alignment first
-    while (this.instructions.length * 8 % 8 !== 0) {
-      this.instructions.push(Buffer.alloc(8, 0));
-    }
-    const offset = this.instructions.length * 8; // byte offset from start of .text
-    for (let i = 0; i < bytes.length; i += 8) {
-      const chunk = Buffer.alloc(8, 0);
-      for (let j = 0; j < 8 && i + j < bytes.length; j++) {
-        chunk[j] = bytes[i + j];
-      }
-      this.instructions.push(chunk);
-    }
-    return offset;
-  }
-
   emitLogProgram(messages) {
     this.movReg(R6, R1); // save input pointer
 
-    // First emit all code, then append string data after exit
-    const msgRefs = []; // { patchIdx, len }
     for (const msg of messages) {
-      // lddw r1, 0 (placeholder — patched below)
+      const label = this.addString(msg);
+      const info = this.rodataLabels[label];
+      // lddw r1, <rodata_offset> — actual address, relocation validates
+      // The rodata file offset will be patched in ELF builder
+      this._rodataRefs = this._rodataRefs || [];
       const patchIdx = this.instructions.length;
-      this.loadImm64(R1, 0);
-      this.movImm(R2, msg.length);
+      this.loadImm64(R1, 0); // placeholder, patched by ELF builder
+      this._rodataRefs.push({ instrIndex: patchIdx, label });
+      // mov r2, len
+      this.movImm(R2, info.length);
+      // call sol_log_ (src=1, imm=-1, patched by relocation)
       this.syscall(SYSCALL_SOL_LOG);
-      msgRefs.push({ patchIdx, msg });
     }
 
-    // Return success
     this.movImm(R0, 0);
     this.exit();
-
-    // Append string data AFTER exit, still within .text section
-    // Then patch the lddw instructions with the actual addresses
-    for (const ref of msgRefs) {
-      const strBytes = Buffer.from(ref.msg, 'utf8');
-      const dataOffset = this.appendData(strBytes);
-      // dataOffset is byte offset from start of instruction stream
-      // The actual virtual address will be TEXT_OFF + dataOffset
-      // Store as _inlineData patch
-      this._inlinePatches = this._inlinePatches || [];
-      this._inlinePatches.push({ instrIndex: ref.patchIdx, byteOffset: dataOffset });
-    }
   }
 
   getCode() {
@@ -359,16 +334,17 @@ function buildSolanaELF(emitter) {
     // st_value = 0, st_size = 0
   }
 
-  // Build .rel.dyn: one relocation per syscall CALL instruction
-  const reldyn = Buffer.alloc(REL_SZ * syscalls.length, 0);
-  // r_offset and r_info patched after layout (need TEXT_OFF)
+  // Build .rel.dyn: relocations for lddw (type 8) + CALL (type 10)
+  const rodataRefs = emitter._rodataRefs || [];
+  const numRels = syscalls.length + rodataRefs.length;
+  const reldyn = Buffer.alloc(REL_SZ * numRels, 0);
 
   // Build .dynamic
   const numDynEntries = syscalls.length > 0 ? 10 : 7;
   const dynamic = Buffer.alloc(DYN_E * numDynEntries, 0);
 
   // .shstrtab
-  const hasReldyn = syscalls.length > 0;
+  const hasReldyn = numRels > 0;
   const shstrtabStr = hasReldyn
     ? '\0.text\0.rodata\0.dynamic\0.dynsym\0.dynstr\0.rel.dyn\0.shstrtab\0'
     : '\0.text\0.dynamic\0.dynsym\0.dynstr\0.shstrtab\0';
@@ -384,7 +360,7 @@ function buildSolanaELF(emitter) {
 
   // Layout
   const EH = 64, PH = 56, SH = 64;
-  const NP = 3;
+  const NP = 4; // text, rodata, dynsym+dynstr+rel, dynamic
   const hasRodata = rodata.length > 0;
   const NS = (hasReldyn ? 7 : 6) + (hasRodata ? 1 : 0);
 
