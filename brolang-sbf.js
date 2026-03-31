@@ -206,7 +206,7 @@ class SBFEmitter {
   syscall(hash) {
     this._syscalls = this._syscalls || [];
     this._syscalls.push({ instrIndex: this.instructions.length, hash });
-    this.emit(BPF_JMP | BPF_CALL, 0, 0, 0, hash);
+    this.emit(BPF_JMP | BPF_CALL, 0, 0, 0, 0); // imm=0, relocation patches it
   }
 
   // exit
@@ -247,22 +247,52 @@ class SBFEmitter {
     this.syscall(SYSCALL_SOL_LOG);
   }
 
-  // Emit a complete program that just logs messages and exits
-  emitLogProgram(messages) {
-    // Entrypoint: r1 = pointer to input (program_id, accounts, instr_data)
-    // For a simple log program, we ignore input and just log.
+  // Append raw bytes to the instruction stream (for inline string data)
+  appendData(bytes) {
+    // Pad to 8-byte alignment first
+    while (this.instructions.length * 8 % 8 !== 0) {
+      this.instructions.push(Buffer.alloc(8, 0));
+    }
+    const offset = this.instructions.length * 8; // byte offset from start of .text
+    for (let i = 0; i < bytes.length; i += 8) {
+      const chunk = Buffer.alloc(8, 0);
+      for (let j = 0; j < 8 && i + j < bytes.length; j++) {
+        chunk[j] = bytes[i + j];
+      }
+      this.instructions.push(chunk);
+    }
+    return offset;
+  }
 
-    // Save callee-saved registers
+  emitLogProgram(messages) {
     this.movReg(R6, R1); // save input pointer
 
+    // First emit all code, then append string data after exit
+    const msgRefs = []; // { patchIdx, len }
     for (const msg of messages) {
-      const label = this.addString(msg);
-      this.emitSolLog(label);
+      // lddw r1, 0 (placeholder — patched below)
+      const patchIdx = this.instructions.length;
+      this.loadImm64(R1, 0);
+      this.movImm(R2, msg.length);
+      this.syscall(SYSCALL_SOL_LOG);
+      msgRefs.push({ patchIdx, msg });
     }
 
-    // Return success (r0 = 0)
+    // Return success
     this.movImm(R0, 0);
     this.exit();
+
+    // Append string data AFTER exit, still within .text section
+    // Then patch the lddw instructions with the actual addresses
+    for (const ref of msgRefs) {
+      const strBytes = Buffer.from(ref.msg, 'utf8');
+      const dataOffset = this.appendData(strBytes);
+      // dataOffset is byte offset from start of instruction stream
+      // The actual virtual address will be TEXT_OFF + dataOffset
+      // Store as _inlineData patch
+      this._inlinePatches = this._inlinePatches || [];
+      this._inlinePatches.push({ instrIndex: ref.patchIdx, byteOffset: dataOffset });
+    }
   }
 
   getCode() {
@@ -276,209 +306,317 @@ class SBFEmitter {
 // ═══════════════════════════════════════════
 
 function buildSolanaELF(emitter) {
-  // Matched against cargo-build-sbf reference output.
-  // Key: EM_SBF=0x107, vaddr==file_offset, DT_FLAGS+DT_TEXTREL
+  // ELF format matched against cargo-build-sbf output.
+  // vaddr == file_offset, EM_SBF=0x107, ET_DYN
+  // Adds .rel.dyn for syscall resolution at load time.
+
   const code = Buffer.concat(emitter.instructions);
   const rodata = Buffer.from(emitter.rodata);
+  const syscalls = emitter._syscalls || [];
+  const patches = emitter._patches || [];
   const align8 = (v) => (v + 7) & ~7;
-
-  // .dynstr
-  const dynstr = Buffer.from('\0entrypoint\0');
-  // .dynsym (2 entries x 24 bytes)
   const SYM_SZ = 24;
-  const dynsym = Buffer.alloc(SYM_SZ * 2, 0);
-  // .dynamic (7 entries x 16 bytes)
+  const REL_SZ = 16; // Elf64_Rel
   const DYN_E = 16;
-  const dynamic = Buffer.alloc(DYN_E * 7, 0);
-  // .shstrtab
-  const shstrtab = Buffer.from('\0.text\0.dynamic\0.dynsym\0.dynstr\0.shstrtab\0');
-  const SN = {TEXT:1, DYNAMIC:7, DYNSYM:16, DYNSTR:24, SHSTRTAB:32};
 
-  const EH=64, PH=56, SH=64, NP=3, NS=6;
-  const PH_END = EH + PH*NP;
-  const T_OFF = align8(PH_END);
-  const T_SZ = code.length;
-  const D_OFF = align8(T_OFF + T_SZ);
-  const D_SZ = dynamic.length;
-  const DS_OFF = align8(D_OFF + D_SZ);
-  const DS_SZ = dynsym.length;
-  const STR_OFF = align8(DS_OFF + DS_SZ);
-  const STR_SZ = dynstr.length;
-  const SHSTR_OFF = align8(STR_OFF + STR_SZ);
-  const SHSTR_SZ = shstrtab.length;
-  const SH_OFF = align8(SHSTR_OFF + SHSTR_SZ);
-  const TOTAL = SH_OFF + SH*NS;
-
-  // Rodata goes right after text in the same LOAD segment
-  let R_OFF = 0, R_SZ = 0;
-  if (rodata.length > 0) {
-    R_OFF = align8(T_OFF + T_SZ);
-    // Push dynamic after rodata
-    // Recalculate...
-  }
-  // For simplicity in v0.1, embed rodata in .text region
-  // (sol_log addresses point into the text LOAD region)
-  // We'll append rodata right after code bytes
-  const textAndRodata = rodata.length > 0 ? Buffer.concat([code, Buffer.alloc(align8(T_SZ) - T_SZ, 0), rodata]) : code;
-  const TR_SZ = textAndRodata.length;
-
-  // Recalc with combined text+rodata
-  const D_OFF2 = align8(T_OFF + TR_SZ);
-  const DS_OFF2 = align8(D_OFF2 + D_SZ);
-  const STR_OFF2 = align8(DS_OFF2 + DS_SZ);
-  const SHSTR_OFF2 = align8(STR_OFF2 + STR_SZ);
-  const SH_OFF2 = align8(SHSTR_OFF2 + SHSTR_SZ);
-  const TOTAL2 = SH_OFF2 + SH*NS;
-
-  // Patch rodata addresses (vaddr == file offset)
-  if (emitter._patches) {
-    for (const patch of emitter._patches) {
-      if (patch.type === 'rodata_addr') {
-        const info = emitter.rodataLabels[patch.label];
-        const addr = T_OFF + align8(T_SZ) + info.offset; // file offset of string
-        emitter.instructions[patch.instrIndex].writeInt32LE(addr & 0xFFFFFFFF, 4);
-        emitter.instructions[patch.instrIndex + 1].writeInt32LE(0, 4); // hi32=0
-      }
+  // Collect unique syscall names for symbol table
+  // sol_log hash = 0x7ef088ca → symbol name "sol_log_"
+  const SYSCALL_NAMES = { 0x7ef088ca: 'sol_log_', 0x7317b434: 'sol_log_64_' };
+  const uniqueSyscalls = new Map(); // hash → symbol_index
+  const syscallList = []; // ordered list of {name, hash}
+  for (const sc of syscalls) {
+    if (!uniqueSyscalls.has(sc.hash)) {
+      uniqueSyscalls.set(sc.hash, syscallList.length + 2); // +2: sym 0=null, 1=entrypoint
+      syscallList.push({ name: SYSCALL_NAMES[sc.hash] || `syscall_${sc.hash.toString(16)}`, hash: sc.hash });
     }
   }
-  const patchedTextAndRodata = rodata.length > 0
-    ? Buffer.concat([Buffer.concat(emitter.instructions), Buffer.alloc(align8(T_SZ) - T_SZ, 0), rodata])
-    : Buffer.concat(emitter.instructions);
 
-  // Patch dynsym entry 1: entrypoint
+  // Build .dynstr: \0entrypoint\0sol_log_\0...
+  let dynstrParts = ['\0', 'entrypoint\0'];
+  const symNameOffsets = {}; // symbol name → offset in dynstr
+  symNameOffsets['entrypoint'] = 1;
+  let dsOff = dynstrParts.join('').length;
+  for (const sc of syscallList) {
+    symNameOffsets[sc.name] = dsOff;
+    dynstrParts.push(sc.name + '\0');
+    dsOff += sc.name.length + 1;
+  }
+  const dynstr = Buffer.from(dynstrParts.join(''));
+
+  // Build .dynsym: null + entrypoint + syscall symbols
+  const numSyms = 2 + syscallList.length;
+  const dynsym = Buffer.alloc(SYM_SZ * numSyms, 0);
+  // sym 0: null (zeroed)
+  // sym 1: entrypoint (patched later with TEXT_OFF)
+  // sym 2+: syscall symbols (undefined externals)
+  for (let i = 0; i < syscallList.length; i++) {
+    const off = SYM_SZ * (2 + i);
+    const sc = syscallList[i];
+    dynsym.writeUInt32LE(symNameOffsets[sc.name], off);    // st_name
+    dynsym[off + 4] = (1 << 4) | 0;                        // STB_GLOBAL | STT_NOTYPE
+    dynsym[off + 5] = 0;                                    // STV_DEFAULT
+    dynsym.writeUInt16LE(0, off + 6);                       // st_shndx = SHN_UNDEF
+    // st_value = 0, st_size = 0
+  }
+
+  // Build .rel.dyn: one relocation per syscall CALL instruction
+  const reldyn = Buffer.alloc(REL_SZ * syscalls.length, 0);
+  // r_offset and r_info patched after layout (need TEXT_OFF)
+
+  // Build .dynamic
+  const numDynEntries = syscalls.length > 0 ? 10 : 7;
+  const dynamic = Buffer.alloc(DYN_E * numDynEntries, 0);
+
+  // .shstrtab
+  const hasReldyn = syscalls.length > 0;
+  const shstrtabStr = hasReldyn
+    ? '\0.text\0.rodata\0.dynamic\0.dynsym\0.dynstr\0.rel.dyn\0.shstrtab\0'
+    : '\0.text\0.dynamic\0.dynsym\0.dynstr\0.shstrtab\0';
+  const shstrtab = Buffer.from(shstrtabStr);
+  // Compute section name offsets
+  const snText = 1;
+  const snRodata = 7;
+  const snDynamic = 15;
+  const snDynsym = 24;
+  const snDynstr = 32;
+  const snReldyn = hasReldyn ? 40 : -1;
+  const snShstrtab = hasReldyn ? 49 : 40;
+
+  // Layout
+  const EH = 64, PH = 56, SH = 64;
+  const NP = 3;
+  const hasRodata = rodata.length > 0;
+  const NS = (hasReldyn ? 7 : 6) + (hasRodata ? 1 : 0);
+
+  const PH_END = EH + PH * NP;
+  const TEXT_OFF = align8(PH_END);
+  const TEXT_SZ = code.length;
+
+  // Append rodata after text in the same region
+  let textAndRodata;
+  if (rodata.length > 0) {
+    const padSz = align8(TEXT_SZ) - TEXT_SZ;
+    textAndRodata = Buffer.concat([code, Buffer.alloc(padSz, 0), rodata]);
+  } else {
+    textAndRodata = code;
+  }
+  const TR_SZ = textAndRodata.length;
+
+  const DYN_OFF = align8(TEXT_OFF + TR_SZ);
+  const DYN_SZ = dynamic.length;
+
+  const DYNSYM_OFF = align8(DYN_OFF + DYN_SZ);
+  const DYNSYM_SZ = dynsym.length;
+
+  const DYNSTR_OFF = align8(DYNSYM_OFF + DYNSYM_SZ);
+  const DYNSTR_SZ = dynstr.length;
+
+  let RELDYN_OFF = 0, RELDYN_SZ = 0;
+  if (hasReldyn) {
+    RELDYN_OFF = align8(DYNSTR_OFF + DYNSTR_SZ);
+    RELDYN_SZ = reldyn.length;
+  }
+
+  const SHSTRTAB_OFF = align8(hasReldyn ? RELDYN_OFF + RELDYN_SZ : DYNSTR_OFF + DYNSTR_SZ);
+  const SHSTRTAB_SZ = shstrtab.length;
+
+  const SHDRS_OFF = align8(SHSTRTAB_OFF + SHSTRTAB_SZ);
+  const TOTAL = SHDRS_OFF + SH * NS;
+
+  // Patch entrypoint symbol
   const sp = SYM_SZ;
-  dynsym.writeUInt32LE(1, sp);           // st_name
-  dynsym[sp+4] = (1<<4)|2;              // STB_GLOBAL|STT_FUNC
-  dynsym.writeUInt16LE(1, sp+6);        // st_shndx = .text
-  dynsym.writeBigUInt64LE(BigInt(T_OFF), sp+8);  // st_value = file offset
-  dynsym.writeBigUInt64LE(BigInt(T_SZ), sp+16);  // st_size
+  dynsym.writeUInt32LE(symNameOffsets['entrypoint'], sp);
+  dynsym[sp + 4] = (1 << 4) | 2; // STB_GLOBAL | STT_FUNC
+  dynsym.writeUInt16LE(1, sp + 6); // st_shndx = .text
+  dynsym.writeBigUInt64LE(BigInt(TEXT_OFF), sp + 8);
+  dynsym.writeBigUInt64LE(BigInt(TEXT_SZ), sp + 16);
 
-  // Patch .dynamic
+  // Patch .rel.dyn entries
+  for (let i = 0; i < syscalls.length; i++) {
+    const sc = syscalls[i];
+    const symIdx = uniqueSyscalls.get(sc.hash);
+    const instrByteOffset = TEXT_OFF + sc.instrIndex * 8; // each instruction is 8 bytes
+    const R_BPF_64_32 = 10;
+    reldyn.writeBigUInt64LE(BigInt(instrByteOffset), i * REL_SZ);
+    // r_info = (sym_idx << 32) | type
+    const rInfo = (BigInt(symIdx) << 32n) | BigInt(R_BPF_64_32);
+    reldyn.writeBigUInt64LE(rInfo, i * REL_SZ + 8);
+  }
+
+  // Patch .dynamic entries
   let dp = 0;
+  const DT_NULL=0, DT_STRTAB=5, DT_SYMTAB=6, DT_STRSZ=10, DT_SYMENT=11;
+  const DT_REL=17, DT_RELSZ=18, DT_RELENT=19, DT_TEXTREL=22, DT_FLAGS=30;
   const dw = (t,v) => { dynamic.writeBigUInt64LE(BigInt(t),dp); dynamic.writeBigUInt64LE(BigInt(v),dp+8); dp+=DYN_E; };
-  dw(30, 4);             // DT_FLAGS = DF_TEXTREL
-  dw(6, DS_OFF2);        // DT_SYMTAB
-  dw(11, SYM_SZ);        // DT_SYMENT
-  dw(5, STR_OFF2);       // DT_STRTAB
-  dw(10, STR_SZ);        // DT_STRSZ
-  dw(22, 0);             // DT_TEXTREL
-  dw(0, 0);              // DT_NULL
+  dw(DT_FLAGS, 4); // DF_TEXTREL
+  dw(DT_SYMTAB, DYNSYM_OFF);
+  dw(DT_SYMENT, SYM_SZ);
+  dw(DT_STRTAB, DYNSTR_OFF);
+  dw(DT_STRSZ, DYNSTR_SZ);
+  dw(DT_TEXTREL, 0);
+  if (hasReldyn) {
+    dw(DT_REL, RELDYN_OFF);
+    dw(DT_RELSZ, RELDYN_SZ);
+    dw(DT_RELENT, REL_SZ);
+  }
+  dw(DT_NULL, 0);
+
+  // Patch inline string addresses (strings appended after exit in .text)
+  const inlinePatches = emitter._inlinePatches || [];
+  for (const ip of inlinePatches) {
+    const addr = TEXT_OFF + ip.byteOffset;
+    emitter.instructions[ip.instrIndex].writeInt32LE(addr & 0xFFFFFFFF, 4);
+    emitter.instructions[ip.instrIndex + 1].writeInt32LE(0, 4);
+  }
+  // Rebuild code with patches applied (includes inline string data)
+  textAndRodata = Buffer.concat(emitter.instructions);
 
   // Build ELF
-  const elf = Buffer.alloc(TOTAL2, 0);
+  const elf = Buffer.alloc(TOTAL, 0);
 
   // ELF header
   elf[0]=0x7F;elf[1]=0x45;elf[2]=0x4C;elf[3]=0x46;
-  elf[4]=2;elf[5]=1;elf[6]=1;elf[7]=0;
+  elf[4]=2;elf[5]=1;elf[6]=1;
   elf.writeUInt16LE(3, 16);           // ET_DYN
-  elf.writeUInt16LE(0x107, 18);       // EM_SBF (263)
+  elf.writeUInt16LE(0x107, 18);       // EM_SBF
   elf.writeUInt32LE(1, 20);
-  elf.writeBigUInt64LE(BigInt(T_OFF), 24);  // e_entry = file offset of .text
+  elf.writeBigUInt64LE(BigInt(TEXT_OFF), 24);
   elf.writeBigUInt64LE(BigInt(EH), 32);
-  elf.writeBigUInt64LE(BigInt(SH_OFF2), 40);
-  elf.writeUInt32LE(0, 48);           // flags
+  elf.writeBigUInt64LE(BigInt(SHDRS_OFF), 40);
+  elf.writeUInt32LE(0, 48);
   elf.writeUInt16LE(EH, 52);
   elf.writeUInt16LE(PH, 54);
   elf.writeUInt16LE(NP, 56);
   elf.writeUInt16LE(SH, 58);
   elf.writeUInt16LE(NS, 60);
-  elf.writeUInt16LE(5, 62);           // shstrndx
+  elf.writeUInt16LE(NS - 1, 62); // shstrndx = last section
 
   // PHDR 0: .text + rodata (LOAD RE)
   let pos = EH;
   elf.writeUInt32LE(1,pos); elf.writeUInt32LE(5,pos+4);
-  elf.writeBigUInt64LE(BigInt(T_OFF),pos+8);
-  elf.writeBigUInt64LE(BigInt(T_OFF),pos+16);
-  elf.writeBigUInt64LE(BigInt(T_OFF),pos+24);
-  elf.writeBigUInt64LE(BigInt(TR_SZ),pos+32);
-  elf.writeBigUInt64LE(BigInt(TR_SZ),pos+40);
-  elf.writeBigUInt64LE(BigInt(0x1000),pos+48);
+  elf.writeBigUInt64LE(BigInt(TEXT_OFF),pos+8);
+  elf.writeBigUInt64LE(BigInt(TEXT_OFF),pos+16);
+  elf.writeBigUInt64LE(BigInt(TEXT_OFF),pos+24);
+  elf.writeBigUInt64LE(BigInt(TEXT_SZ),pos+32);
+  elf.writeBigUInt64LE(BigInt(TEXT_SZ),pos+40);
+  elf.writeBigUInt64LE(0x1000n,pos+48);
 
-  // PHDR 1: .dynsym+.dynstr (LOAD R)
+  // PHDR 1: .dynsym + .dynstr + .rel.dyn (LOAD R)
   pos+=PH;
   elf.writeUInt32LE(1,pos); elf.writeUInt32LE(4,pos+4);
-  elf.writeBigUInt64LE(BigInt(DS_OFF2),pos+8);
-  elf.writeBigUInt64LE(BigInt(DS_OFF2),pos+16);
-  elf.writeBigUInt64LE(BigInt(DS_OFF2),pos+24);
-  const rdSz = STR_OFF2+STR_SZ-DS_OFF2;
-  elf.writeBigUInt64LE(BigInt(rdSz),pos+32);
-  elf.writeBigUInt64LE(BigInt(rdSz),pos+40);
-  elf.writeBigUInt64LE(BigInt(0x1000),pos+48);
+  const RD_START = TEXT_OFF + align8(TEXT_SZ); // start from rodata
+  elf.writeBigUInt64LE(BigInt(RD_START),pos+8);
+  elf.writeBigUInt64LE(BigInt(RD_START),pos+16);
+  elf.writeBigUInt64LE(BigInt(RD_START),pos+24);
+  const rdEnd = hasReldyn ? RELDYN_OFF + RELDYN_SZ : DYNSTR_OFF + DYNSTR_SZ;
+  elf.writeBigUInt64LE(BigInt(rdEnd - RD_START),pos+32);
+  elf.writeBigUInt64LE(BigInt(rdEnd - RD_START),pos+40);
+  elf.writeBigUInt64LE(0x1000n,pos+48);
 
   // PHDR 2: PT_DYNAMIC
   pos+=PH;
   elf.writeUInt32LE(2,pos); elf.writeUInt32LE(6,pos+4);
-  elf.writeBigUInt64LE(BigInt(D_OFF2),pos+8);
-  elf.writeBigUInt64LE(BigInt(D_OFF2),pos+16);
-  elf.writeBigUInt64LE(BigInt(D_OFF2),pos+24);
-  elf.writeBigUInt64LE(BigInt(D_SZ),pos+32);
-  elf.writeBigUInt64LE(BigInt(D_SZ),pos+40);
+  elf.writeBigUInt64LE(BigInt(DYN_OFF),pos+8);
+  elf.writeBigUInt64LE(BigInt(DYN_OFF),pos+16);
+  elf.writeBigUInt64LE(BigInt(DYN_OFF),pos+24);
+  elf.writeBigUInt64LE(BigInt(DYN_SZ),pos+32);
+  elf.writeBigUInt64LE(BigInt(DYN_SZ),pos+40);
   elf.writeBigUInt64LE(8n,pos+48);
 
   // Section data
-  patchedTextAndRodata.copy(elf, T_OFF);
-  dynamic.copy(elf, D_OFF2);
-  dynsym.copy(elf, DS_OFF2);
-  dynstr.copy(elf, STR_OFF2);
-  shstrtab.copy(elf, SHSTR_OFF2);
+  textAndRodata.copy(elf, TEXT_OFF);
+  dynamic.copy(elf, DYN_OFF);
+  dynsym.copy(elf, DYNSYM_OFF);
+  dynstr.copy(elf, DYNSTR_OFF);
+  if (hasReldyn) reldyn.copy(elf, RELDYN_OFF);
+  shstrtab.copy(elf, SHSTRTAB_OFF);
 
   // Section headers
-  // 0: null
+  let si = 1;
+  let dynsymSi = 0, dynstrSi = 0;
 
   // 1: .text
-  pos=SH_OFF2+SH;
-  elf.writeUInt32LE(SN.TEXT,pos);
+  pos = SHDRS_OFF + SH * si++;
+  elf.writeUInt32LE(snText,pos);
   elf.writeUInt32LE(1,pos+4); elf.writeBigUInt64LE(6n,pos+8);
-  elf.writeBigUInt64LE(BigInt(T_OFF),pos+16);
-  elf.writeBigUInt64LE(BigInt(T_OFF),pos+24);
-  elf.writeBigUInt64LE(BigInt(T_SZ),pos+32);
+  elf.writeBigUInt64LE(BigInt(TEXT_OFF),pos+16);
+  elf.writeBigUInt64LE(BigInt(TEXT_OFF),pos+24);
+  elf.writeBigUInt64LE(BigInt(TEXT_SZ),pos+32);
   elf.writeBigUInt64LE(8n,pos+48);
 
-  // 2: .dynamic
-  pos=SH_OFF2+SH*2;
-  elf.writeUInt32LE(SN.DYNAMIC,pos);
+  // .rodata (if rodata exists)
+  if (hasRodata) {
+    const RODATA_OFF = TEXT_OFF + align8(TEXT_SZ);
+    const RODATA_SZ = rodata.length;
+    pos = SHDRS_OFF + SH * si++;
+    elf.writeUInt32LE(snRodata,pos);
+    elf.writeUInt32LE(1,pos+4); elf.writeBigUInt64LE(2n,pos+8); // SHT_PROGBITS, SHF_ALLOC
+    elf.writeBigUInt64LE(BigInt(RODATA_OFF),pos+16);
+    elf.writeBigUInt64LE(BigInt(RODATA_OFF),pos+24);
+    elf.writeBigUInt64LE(BigInt(RODATA_SZ),pos+32);
+    elf.writeBigUInt64LE(1n,pos+48);
+  }
+
+  // .dynamic
+  pos = SHDRS_OFF + SH * si++;
+  // dynstrIdx computed dynamically below
+  elf.writeUInt32LE(snDynamic,pos);
   elf.writeUInt32LE(6,pos+4); elf.writeBigUInt64LE(3n,pos+8);
-  elf.writeBigUInt64LE(BigInt(D_OFF2),pos+16);
-  elf.writeBigUInt64LE(BigInt(D_OFF2),pos+24);
-  elf.writeBigUInt64LE(BigInt(D_SZ),pos+32);
-  elf.writeUInt32LE(4,pos+40);
+  elf.writeBigUInt64LE(BigInt(DYN_OFF),pos+16);
+  elf.writeBigUInt64LE(BigInt(DYN_OFF),pos+24);
+  elf.writeBigUInt64LE(BigInt(DYN_SZ),pos+32);
+  elf.writeUInt32LE(dynstrSi,pos+40);
   elf.writeBigUInt64LE(8n,pos+48);
   elf.writeBigUInt64LE(16n,pos+56);
 
-  // 3: .dynsym
-  pos=SH_OFF2+SH*3;
-  elf.writeUInt32LE(SN.DYNSYM,pos);
+  // .dynsym
+  dynsymSi = si;
+  pos = SHDRS_OFF + SH * si++;
+  elf.writeUInt32LE(snDynsym,pos);
   elf.writeUInt32LE(11,pos+4); elf.writeBigUInt64LE(2n,pos+8);
-  elf.writeBigUInt64LE(BigInt(DS_OFF2),pos+16);
-  elf.writeBigUInt64LE(BigInt(DS_OFF2),pos+24);
-  elf.writeBigUInt64LE(BigInt(DS_SZ),pos+32);
-  elf.writeUInt32LE(4,pos+40); elf.writeUInt32LE(1,pos+44);
+  elf.writeBigUInt64LE(BigInt(DYNSYM_OFF),pos+16);
+  elf.writeBigUInt64LE(BigInt(DYNSYM_OFF),pos+24);
+  elf.writeBigUInt64LE(BigInt(DYNSYM_SZ),pos+32);
+  elf.writeUInt32LE(dynstrSi,pos+40); elf.writeUInt32LE(1,pos+44);
   elf.writeBigUInt64LE(8n,pos+48);
   elf.writeBigUInt64LE(BigInt(SYM_SZ),pos+56);
 
-  // 4: .dynstr
-  pos=SH_OFF2+SH*4;
-  elf.writeUInt32LE(SN.DYNSTR,pos);
+  // .dynstr
+  dynstrSi = si;
+  pos = SHDRS_OFF + SH * si++;
+  elf.writeUInt32LE(snDynstr,pos);
   elf.writeUInt32LE(3,pos+4); elf.writeBigUInt64LE(2n,pos+8);
-  elf.writeBigUInt64LE(BigInt(STR_OFF2),pos+16);
-  elf.writeBigUInt64LE(BigInt(STR_OFF2),pos+24);
-  elf.writeBigUInt64LE(BigInt(STR_SZ),pos+32);
+  elf.writeBigUInt64LE(BigInt(DYNSTR_OFF),pos+16);
+  elf.writeBigUInt64LE(BigInt(DYNSTR_OFF),pos+24);
+  elf.writeBigUInt64LE(BigInt(DYNSTR_SZ),pos+32);
   elf.writeBigUInt64LE(1n,pos+48);
 
-  // 5: .shstrtab
-  pos=SH_OFF2+SH*5;
-  elf.writeUInt32LE(SN.SHSTRTAB,pos);
+  // 5: .rel.dyn (if syscalls present)
+  if (hasReldyn) {
+    pos = SHDRS_OFF + SH * si++;
+    elf.writeUInt32LE(snReldyn,pos);
+    elf.writeUInt32LE(9,pos+4); // SHT_REL
+    elf.writeBigUInt64LE(2n,pos+8); // SHF_ALLOC
+    elf.writeBigUInt64LE(BigInt(RELDYN_OFF),pos+16);
+    elf.writeBigUInt64LE(BigInt(RELDYN_OFF),pos+24);
+    elf.writeBigUInt64LE(BigInt(RELDYN_SZ),pos+32);
+    elf.writeUInt32LE(dynsymSi,pos+40); // sh_link = .dynsym index
+    elf.writeUInt32LE(1,pos+44); // sh_info = .text index
+    elf.writeBigUInt64LE(8n,pos+48);
+    elf.writeBigUInt64LE(BigInt(REL_SZ),pos+56);
+  }
+
+  // Last: .shstrtab
+  pos = SHDRS_OFF + SH * si;
+  elf.writeUInt32LE(snShstrtab,pos);
   elf.writeUInt32LE(3,pos+4);
-  elf.writeBigUInt64LE(BigInt(SHSTR_OFF2),pos+24);
-  elf.writeBigUInt64LE(BigInt(SHSTR_SZ),pos+32);
+  elf.writeBigUInt64LE(BigInt(SHSTRTAB_OFF),pos+24);
+  elf.writeBigUInt64LE(BigInt(SHSTRTAB_SZ),pos+32);
   elf.writeBigUInt64LE(1n,pos+48);
 
   return elf;
 }
 
-// ═══════════════════════════════════════════
-//  BROLANG → SBF COMPILER
-// ═══════════════════════════════════════════
 
 function compileBroToSBF(source) {
   // For v0.1: extract shill statements and compile to sol_log calls
