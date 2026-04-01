@@ -165,10 +165,11 @@ function validateJavascript(code) {
 }
 
 function validatePython(code) {
-  // Use python3 -c to check syntax
   try {
     const { execSync } = require('child_process');
-    execSync(`python3 -c "import ast; ast.parse(${JSON.stringify(code)})"`, { timeout: 5000, stdio: 'pipe' });
+    const tmp = '/tmp/brolang_bench_py.py';
+    fs.writeFileSync(tmp, code);
+    execSync(`python3 -c "import ast,sys; ast.parse(open('${tmp}').read())"`, { timeout: 5000, stdio: 'pipe' });
     return { valid: true };
   } catch (e) {
     const stderr = e.stderr ? e.stderr.toString() : e.message;
@@ -177,16 +178,16 @@ function validatePython(code) {
 }
 
 function validateRust(code) {
-  // Write to temp file and check with rustc --edition 2021
   try {
     const { execSync } = require('child_process');
     const tmp = '/tmp/brolang_bench_rust.rs';
     fs.writeFileSync(tmp, code);
-    execSync(`rustc --edition 2021 ${tmp} -o /dev/null 2>&1`, { timeout: 15000, stdio: 'pipe' });
+    execSync(`rustc --edition 2021 ${tmp} -o /tmp/brolang_bench_rust_out 2>&1`, { timeout: 15000 });
     return { valid: true };
   } catch (e) {
-    const stderr = e.stderr ? e.stderr.toString() : (e.stdout ? e.stdout.toString() : e.message);
-    return { valid: false, error: classifyError(stderr, 'rust') };
+    const out = e.stdout ? e.stdout.toString() : '';
+    const err = e.stderr ? e.stderr.toString() : '';
+    return { valid: false, error: classifyError(out + err || e.message, 'rust') };
   }
 }
 

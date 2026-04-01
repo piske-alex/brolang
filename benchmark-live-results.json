@@ -1,0 +1,271 @@
+{
+  "metadata": {
+    "model": "claude-sonnet-4-20250514",
+    "runs_per_task": 3,
+    "tasks": 10,
+    "languages": [
+      "brolang",
+      "javascript",
+      "python",
+      "rust",
+      "solidity"
+    ],
+    "timestamp": "2026-03-31T22:22:24.458Z"
+  },
+  "results": {
+    "brolang": {
+      "pass": 29,
+      "fail": 1,
+      "total": 30,
+      "errors": {
+        "type_error": 1
+      },
+      "input_tokens": 9906,
+      "output_tokens": 1954,
+      "per_task": {
+        "T1": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T2": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T3": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T4": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T5": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T6": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T7": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T8": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T9": {
+          "pass": 2,
+          "fail": 1
+        },
+        "T10": {
+          "pass": 3,
+          "fail": 0
+        }
+      }
+    },
+    "javascript": {
+      "pass": 30,
+      "fail": 0,
+      "total": 30,
+      "errors": {},
+      "input_tokens": 1836,
+      "output_tokens": 1678,
+      "per_task": {
+        "T1": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T2": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T3": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T4": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T5": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T6": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T7": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T8": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T9": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T10": {
+          "pass": 3,
+          "fail": 0
+        }
+      }
+    },
+    "python": {
+      "pass": 30,
+      "fail": 0,
+      "total": 30,
+      "errors": {},
+      "input_tokens": 1836,
+      "output_tokens": 1388,
+      "per_task": {
+        "T1": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T2": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T3": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T4": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T5": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T6": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T7": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T8": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T9": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T10": {
+          "pass": 3,
+          "fail": 0
+        }
+      }
+    },
+    "rust": {
+      "pass": 30,
+      "fail": 0,
+      "total": 30,
+      "errors": {},
+      "input_tokens": 2016,
+      "output_tokens": 2003,
+      "per_task": {
+        "T1": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T2": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T3": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T4": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T5": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T6": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T7": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T8": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T9": {
+          "pass": 3,
+          "fail": 0
+        },
+        "T10": {
+          "pass": 3,
+          "fail": 0
+        }
+      }
+    },
+    "solidity": {
+      "pass": 0,
+      "fail": 30,
+      "total": 30,
+      "errors": {
+        "other": 30
+      },
+      "input_tokens": 2286,
+      "output_tokens": 4344,
+      "per_task": {
+        "T1": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T2": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T3": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T4": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T5": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T6": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T7": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T8": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T9": {
+          "pass": 0,
+          "fail": 3
+        },
+        "T10": {
+          "pass": 0,
+          "fail": 3
+        }
+      }
+    }
+  }
+}
