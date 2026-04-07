@@ -143,6 +143,32 @@ body {
 }
 .btn-gh:hover { background: rgba(255,255,255,0.05); }
 
+.btn-sol {
+  background: transparent;
+  border-color: #9945ff;
+  color: #9945ff;
+}
+.btn-sol:hover { background: rgba(153,69,255,0.1); box-shadow: 0 0 20px rgba(153,69,255,0.2); }
+
+.onchain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: #9945ff;
+  background: rgba(153,69,255,0.08);
+  border: 1px solid rgba(153,69,255,0.25);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  margin-top: 0.75rem;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.onchain-badge:hover { background: rgba(153,69,255,0.15); border-color: rgba(153,69,255,0.5); }
+.onchain-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #14f195; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
 /* ─── SECTIONS ─── */
 
 section {
@@ -696,8 +722,12 @@ Source: https://github.com/piske-alex/brolang</pre>
   <div class="hero-actions" style="margin-top: 1.5rem;">
     <a href="#game-section" class="btn btn-play">Play DOOM.bro</a>
     <a href="#repl-section" class="btn btn-repl">Try the REPL</a>
+    <a href="https://solscan.io/account/GDMfAxLmzZc1nW8iZESgR6xHfrXpq5egnTZZgtyEisJe" target="_blank" class="btn btn-sol">Solana Program</a>
     <a href="https://github.com/piske-alex/brolang" target="_blank" class="btn btn-gh">GitHub</a>
   </div>
+  <a href="https://solscan.io/account/GDMfAxLmzZc1nW8iZESgR6xHfrXpq5egnTZZgtyEisJe" target="_blank" class="onchain-badge">
+    <span class="dot"></span> Deployed on Solana Mainnet &mdash; GDMfAxL...EisJe
+  </a>
 </div>
 
 <!-- ═══════ GAME ═══════ -->
@@ -826,6 +856,8 @@ STOP RUG.</textarea>
     Built by <a href="https://github.com/piske-alex">Alex</a>
     &nbsp;|&nbsp;
     <a href="https://github.com/piske-alex/brolang">GitHub</a>
+    &nbsp;|&nbsp;
+    <a href="https://solscan.io/account/GDMfAxLmzZc1nW8iZESgR6xHfrXpq5egnTZZgtyEisJe" style="color: #9945ff;">Solana Program</a>
     &nbsp;|&nbsp;
     Pair-programmed with <a href="https://claude.ai/code">Claude Code</a>
   </p>
